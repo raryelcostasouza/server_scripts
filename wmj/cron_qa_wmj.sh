@@ -2,8 +2,6 @@
 
 script_dir="$(dirname "$(readlink -f "$0")")"
 source "$script_dir/../lib/vars_logging.sh"
-source "$script_dir/../creds/duplicity.sh"
-
 
 $script_dir/../lib/cron_qa_schedule.sh $script_dir/"backup_etc_dir.sh"
 $script_dir/../lib/cron_qa_schedule.sh $script_dir/"backup_wp_files_and_DB.sh"
