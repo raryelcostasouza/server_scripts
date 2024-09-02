@@ -10,7 +10,7 @@ SCRIPT_NAME=$(basename "$SCRIPT_PATH")
 
 TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
 
-$script_dir/create_logs_dir.sh
+$script_dir/../lib/create_logs_dir.sh
 STANDARD_LOG_FILE="~/server_scripts_logs/"$SCRIPT_NAME"-"$TIMESTAMP".log"
 ERROR_LOG_FILE="~/server_scripts_logs/"$SCRIPT_NAME"-"$TIMESTAMP".error.log"
 
