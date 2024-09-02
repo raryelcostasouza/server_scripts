@@ -10,8 +10,9 @@ SCRIPT_NAME=$(basename "$SCRIPT_PATH")
 
 TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
 
-STANDARD_LOG_FILE=$script_dir"/../log/"$SCRIPT_NAME"-"$TIMESTAMP".log"
-ERROR_LOG_FILE=$script_dir"/../log/"$SCRIPT_NAME"-"$TIMESTAMP".error.log"
+$script_dir/create_logs_dir.sh
+STANDARD_LOG_FILE="~/server_scripts_logs/"$SCRIPT_NAME"-"$TIMESTAMP".log"
+ERROR_LOG_FILE="~/server_scripts_logs/"$SCRIPT_NAME"-"$TIMESTAMP".error.log"
 
 #redirecting all output to log file and error output to separate file
 exec >$STANDARD_LOG_FILE 2>$ERROR_LOG_FILE
