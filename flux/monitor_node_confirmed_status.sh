@@ -1,19 +1,8 @@
 #!/bin/bash
 
-# Check if exactly one argument (node identifier) is provided
-if [ "$#" -ne 1 ]; then
-    echo "Usage: $0 <node_identifier>"
-    exit 1
-fi
 
 # Retrieve the node identifier from the argument
-node_identifier="$1"
-
-# Validate that the node identifier is a non-empty string
-if [ -z "$node_identifier" ]; then
-    echo "Error: <node_identifier> must be a non-empty string."
-    exit 1
-fi
+node_identifier=$(hostname)
 
 # Determine the directory of the current script
 script_dir="$(dirname "$(readlink -f "$0")")"
