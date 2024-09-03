@@ -14,5 +14,4 @@ $script_dir/../lib/create_logs_dir.sh
 STANDARD_LOG_FILE="$HOME/server_scripts_logs/$SCRIPT_NAME-$TIMESTAMP.log"
 ERROR_LOG_FILE="$HOME/server_scripts_logs/$SCRIPT_NAME-$TIMESTAMP.error.log"
 
-#redirecting all output to log file and error output to separate file
-exec >$STANDARD_LOG_FILE 2>$ERROR_LOG_FILE
+#redirecting all output to log file and error output to separate fil

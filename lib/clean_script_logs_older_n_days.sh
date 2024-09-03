@@ -14,5 +14,5 @@ printf "\n\n"
 echo "Cleaning up logs older than $days days"
 
 # Find and delete log files older than the specified number of days
-find "~/server_scripts_logs/" -maxdepth 1 -type f -name "*.log" -mtime +"$days" -exec rm {} +
+find "$HOME/server_scripts_logs/" -maxdepth 1 -type f -name "*.log" -mtime +"$days" -exec rm {} +
 
