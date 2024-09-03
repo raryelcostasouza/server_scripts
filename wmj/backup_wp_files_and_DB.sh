@@ -59,14 +59,14 @@ $DUPLICITY_CMD --full-if-older-than 1M --exclude-filelist ~/.duplicity/ignore --
 
 printf "\n\n"
 echo "Cleaning up local DB backups older than 3 years"
-find ~/DB/ -maxdepth 1 -type f -name "*.7z" -mtime +1095 -exec rm {} +
+find $HOME/DB/ -maxdepth 1 -type f -name "*.7z" -mtime +1095 -exec rm {} +
 
 printf "\n\n"
 echo "Backing up DB"
 #backup DB
 mysqldump --databases wmj_guests wmj_org_wordpress > ~/DB/backup.sql
-7za -p$PASSPHRASE_ZIP a ~/DB/backup-db-$TIMESTAMP.sql.7z ~/DB/backup.sql
-rm -f ~/DB/backup.sql
-rclone copy ~/DB/ gdrive:WMJ_Server_Backup/DB/
+7za -p$PASSPHRASE_ZIP a $HOME/DB/backup-db-$TIMESTAMP.sql.7z $HOME/DB/backup.sql
+rm -f $HOME/DB/backup.sql
+rclone copy $HOME/DB/ gdrive:WMJ_Server_Backup/DB/
 
 $script_dir/../lib/check_if_error_log_not_empty.sh $ERROR_LOG_FILE
