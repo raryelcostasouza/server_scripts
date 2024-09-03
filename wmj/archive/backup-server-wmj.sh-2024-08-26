@@ -1,0 +1,20 @@
+#!/bin/bash
+TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
+
+script_dir="$(dirname "$(readlink -f "$0")")"
+source $script_dir/../../creds/duplicity.sh
+
+#backup wmj.net
+duplicity --full-if-older-than 6M --no-encryption ~/domains/watmarpjan.net gdocs://info@watmarpjan.com/WMJ_Server_Backup/WMJ.NET
+
+#backup wmj.org
+duplicity --full-if-older-than 6M --exclude-filelist ~/.duplicity/ignore --no-encryption ~/domains/watmarpjan.org gdocs://info@watmarpjan.com/WMJ_Server_Backup/WMJ.ORG/duplicity
+
+#backup wmj.com
+duplicity --full-if-older-than 6M ~/domains/watmarpjan.com gdocs://info@watmarpjan.com/WMJ_Server_Backup/WMJ.COM
+
+#backup DB
+mysqldump --databases wmj_guests wmj_org_wordpress > ~/DB/backup.sql
+7za -p$PASSPHRASE_ZIP a ~/DB/backup-db-$TIMESTAMP.sql.7z ~/DB/backup.sql
+rm -f ~/DB/backup.sql
+rclone copy ~/DB/ gdrive:WMJ_Server_Backup/DB/

@@ -1,0 +1,7 @@
+#!/bin/bash
+
+script_dir="$(dirname "$(readlink -f "$0")")"
+source $script_dir/../../creds/duplicity.sh
+
+duplicity remove-older-than 2Y --force gdocs://info@watmarpjan.com/WMJ_Server_Backup/Server_Config/etc
+duplicity --full-if-older-than 3M /etc gdocs://info@watmarpjan.com/WMJ_Server_Backup/Server_Config/etc
