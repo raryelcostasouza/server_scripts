@@ -14,6 +14,8 @@ source $script_dir/../lib/vars_logging.sh
 
 printf "\n\n"
 echo "Cleaning up incomplete orphan backups for WMJ.ORG"
+echo $DUPLICITY_CMD
+
 $DUPLICITY_CMD cleanup --force rclone://gdrive://WMJ_Server_Backup/WMJ.ORG/duplicity
 
 #printf "\n\n"
