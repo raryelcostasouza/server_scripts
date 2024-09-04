@@ -2,7 +2,6 @@
 
 script_dir="$(dirname "$(readlink -f "$0")")"
 source "$script_dir/../lib/vars_logging.sh"
-source "$script_dir/../creds/duplicity.sh"
 
 $script_dir/../lib/cron_qa_schedule.sh $script_dir/"monitor_disk_usage_flux.sh"
 $script_dir/../lib/cron_qa_schedule.sh $script_dir/"monitor_node_confirmed_status.sh"
