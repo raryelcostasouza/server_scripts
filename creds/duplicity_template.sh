@@ -6,4 +6,4 @@ export PASSPHRASE="YOUR_DUPLICITY_PASSPHRASE_HERE"
 #PASSPHRASE for 7ZIP encryption of DB dump
 PASSPHRASE_ZIP="YOUR_7ZIP_PASSPHRASE_HERE"
 
-export DUPLICITY_CMD=$(which duplicity)
+export DUPLICITY_CMD=/usr/local/bin/duplicity
