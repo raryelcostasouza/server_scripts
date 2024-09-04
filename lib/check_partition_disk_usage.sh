@@ -32,9 +32,9 @@ fi
 
 # Check if usage is greater than Threshold
 if [ "$USAGE" -gt $THRESHOLD ]; then
-    $script_dir/send_telegram_alert.sh "Warning:\n\n $PARTITION usage is at ${USAGE}%." 
+    $script_dir/send_telegram_alert.sh "$(hostname) Warning:\n\n $PARTITION usage is at ${USAGE}%." 
     exit 3
 else
-    $script_dir/send_telegram_alert.sh "$PARTITION usage is at ${USAGE}%. No action needed."
+    $script_dir/send_telegram_alert.sh "$(hostname) $PARTITION usage is at ${USAGE}%. No action needed."
    exit 0
 fi

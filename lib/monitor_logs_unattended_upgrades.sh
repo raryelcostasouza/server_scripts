@@ -40,9 +40,9 @@ filtered_entries=$(awk -v start="$START_DATE" -v end="$END_DATE" '
 
 # Check if filtered entries are empty
 if [ -z "$filtered_entries" ]; then
-    MESSAGE="No errors or warnings found in $LOG_FILE \nfrom $START_DATE \nto $END_DATE."
+    MESSAGE="$(hostname) No errors or warnings found in $LOG_FILE \nfrom $START_DATE \nto $END_DATE."
 else
-    MESSAGE="Found below warnings/errors in unattended-upgrades logs \nfrom $START_DATE \nto $END_DATE:\n\n$filtered_entries"
+    MESSAGE="$(hostname) Found below warnings/errors in unattended-upgrades logs \nfrom $START_DATE \nto $END_DATE:\n\n$filtered_entries"
 fi
 
 # Send alert with the message
