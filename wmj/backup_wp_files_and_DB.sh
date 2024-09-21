@@ -14,7 +14,7 @@ source $script_dir/../lib/vars_logging.sh
 
 printf "\n\n"
 echo "Cleaning up incomplete orphan backups for WMJ.ORG"
-$DUPLICITY_CMD cleanup --force rclone://gdrive://WMJ_Server_Backup/WMJ.ORG/duplicity
+$DUPLICITY_CMD --allow-source-mismatch cleanup --force rclone://gdrive://WMJ_Server_Backup/WMJ.ORG/duplicity
 
 #printf "\n\n"
 #echo "Removing backups older than 3 years for WMJ.NET"
@@ -26,7 +26,7 @@ $DUPLICITY_CMD cleanup --force rclone://gdrive://WMJ_Server_Backup/WMJ.ORG/dupli
 
 printf "\n\n"
 echo "Removing backups older than 3 years for WMJ.ORG"
-$DUPLICITY_CMD remove-older-than 3Y --force rclone://gdrive://WMJ_Server_Backup/WMJ.ORG/duplicity
+$DUPLICITY_CMD --allow-source-mismatch remove-older-than 3Y --force rclone://gdrive://WMJ_Server_Backup/WMJ.ORG/duplicity
 
 #printf "\n\n"
 #echo "Removing all incrementals older than 1 full backups for WMJ.NET"
@@ -38,7 +38,7 @@ $DUPLICITY_CMD remove-older-than 3Y --force rclone://gdrive://WMJ_Server_Backup/
 
 printf "\n\n"
 echo "Removing all incrementals older than 1 full backups for WMJ.ORG"
-$DUPLICITY_CMD remove-all-inc-of-but-n-full 1 --force rclone://gdrive://WMJ_Server_Backup/WMJ.ORG/duplicity
+$DUPLICITY_CMD --allow-source-mismatch remove-all-inc-of-but-n-full 1 --force rclone://gdrive://WMJ_Server_Backup/WMJ.ORG/duplicity
 
 #printf "\n\n"
 #echo "Backing up WMJ.NET"
@@ -48,7 +48,7 @@ $DUPLICITY_CMD remove-all-inc-of-but-n-full 1 --force rclone://gdrive://WMJ_Serv
 printf "\n\n"
 echo "Backing up WMJ.ORG"
 #backup wmj.org
-$DUPLICITY_CMD --full-if-older-than 1M --exclude-filelist ~/.duplicity/ignore --no-encryption ~/domains/watmarpjan.org rclone://gdrive://WMJ_Server_Backup/WMJ.ORG/duplicity
+$DUPLICITY_CMD --allow-source-mismatch --full-if-older-than 1M --exclude-filelist ~/.duplicity/ignore --no-encryption ~/domains/watmarpjan.org rclone://gdrive://WMJ_Server_Backup/WMJ.ORG/duplicity
 
 #printf "\n\n"
 #echo "Backing up WMJ.COM"
