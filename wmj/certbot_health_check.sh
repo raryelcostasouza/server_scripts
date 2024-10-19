@@ -60,5 +60,5 @@ check_python_dependencies
 check_certbot_dry_run
 
 echo "Certbot is functioning properly."
-echo $ERROR_LOG_FILE
+echo "$ERROR_LOG_FILE"
 $script_dir/../lib/check_if_error_log_not_empty.sh $ERROR_LOG_FILE
