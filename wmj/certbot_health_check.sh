@@ -5,7 +5,7 @@ source "$script_dir/../lib/vars_logging.sh"
 
 # Function to check if certbot is installed and executable
 check_certbot_installed() {
-    if ! command -v certbot &> /dev/null
+    if ! command -v certbot
     then
         echo "Certbot is not installed or not in your PATH."
         exit 1
