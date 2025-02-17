@@ -12,11 +12,6 @@ source "$script_dir/../lib/vars_logging.sh"
 # Get the external public IP of the node
 external_ip=$(curl -s http://checkip.amazonaws.com)
 
-# Send the external IP through Telegram
-MESSAGE="Node $node_identifier: External IP: $external_ip"
-
-$script_dir/../lib/send_telegram_alert.sh "$MESSAGE"
-
 # Optionally, you can retrieve the Flux node status if necessary
 result=$(/usr/local/bin/flux-cli getzelnodestatus)
 
