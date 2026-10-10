@@ -197,6 +197,7 @@ log/       placeholder; real logs go to ~/server_scripts_logs/
 | `check_required_commands.sh` | Alerts if any of the given commands is not in `PATH` | `<cmd>...` |
 | `check_script_ran_recently.sh` | Alerts if no log for a script exists within N days | `<days> <script name>` |
 | `check_remote_backup_freshness.sh` | Alerts if the newest file at an rclone path is older than N days | `<days> <rclone path>` |
+| `check_wordpress_requirements.sh` | Reads `wp-includes/version.php` plus the `Requires PHP` / `Requires at least` headers of every plugin and theme, and alerts if the installed PHP, database server or WordPress version is below what they require | `<wordpress root> [php binary]` |
 | `check_partition_disk_usage.sh` | Alerts if a partition exceeds a usage threshold | `<partition> <threshold>` |
 | `monitor_disk_usage.sh` | Runs the partition check across several partitions | `<threshold> <partition>...` |
 | `check_service_status.sh` | Alerts if a systemd unit is not active, and once more when it recovers | `<service>` |
@@ -211,6 +212,7 @@ log/       placeholder; real logs go to ~/server_scripts_logs/
 | `backup_etc_dir.sh` | duplicity backup of `/etc` to Google Drive, with cleanup and incremental logic |
 | `sync_wordpress_uploads.sh` | `rclone` sync of `wp-content/uploads` to Google Drive |
 | `monitor_backups_wmj.sh` | Checks backup freshness, required commands and crontab validity |
+| `monitor_wordpress_requirements_wmj.sh` | Compares the PHP, database and WordPress versions required by core, plugins and themes against what is installed |
 | `monitor_disk_usage_wmj.sh` | `/boot` and the LVM partition at an 80% threshold |
 | `monitor_service_status_wmj.sh` | `apache2`, `mariadb`, `fail2ban`, `ufw`, `php8.1-fpm.service` and `maldet.service` |
 | `certbot_health_check.sh` | Verifies certbot and runs a renewal dry-run |
@@ -302,6 +304,7 @@ schedules with `*/2 * * * *` for rapid testing — never run them on a productio
 | `0 2 * * *` | `backup_wp_files_and_DB.sh` |
 | `0 0 * * 1` | `monitor_disk_usage_wmj.sh` |
 | `0 6 * * 1` | `monitor_backups_wmj.sh` |
+| `0 7 * * 1` | `monitor_wordpress_requirements_wmj.sh` |
 | `*/15 * * * *` | `monitor_service_status_wmj.sh` (output to `/dev/null`) |
 | `30 3 1 * *` | `lib/clean_script_logs_older_n_days.sh` |
 
