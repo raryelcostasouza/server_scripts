@@ -30,7 +30,9 @@ fi
 OLD_COMMIT=$(git rev-parse HEAD)
 
 echo "Pulling from origin..."
-if ! git pull --ff-only; then
+# core.fileMode=false for the same reason as the check above: the exec bits this script
+# restores would otherwise look like local changes and abort every pull after the first
+if ! git -c core.fileMode=false pull --ff-only; then
   echo "Error: git pull failed. The host clone may have diverged from origin/main."
   echo "Inspect with: git log --oneline origin/main..HEAD"
   exit 1
