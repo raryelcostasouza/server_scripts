@@ -21,3 +21,4 @@ echo "Backing up /etc folder"
 $DUPLICITY_CMD --allow-source-mismatch --full-if-older-than 1M /etc rclone://gdrive://WMJ_Server_Backup/Server_Config/etc
 
 $script_dir/../lib/check_if_error_log_not_empty.sh $ERROR_LOG_FILE
+$script_dir/../lib/check_log_for_errors.sh "$STANDARD_LOG_FILE"

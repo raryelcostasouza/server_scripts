@@ -71,3 +71,4 @@ rm -f $HOME/DB/backup.sql
 rclone copy $HOME/DB/ gdrive:WMJ_Server_Backup/DB/
 
 $script_dir/../lib/check_if_error_log_not_empty.sh $ERROR_LOG_FILE
+$script_dir/../lib/check_log_for_errors.sh "$STANDARD_LOG_FILE"
