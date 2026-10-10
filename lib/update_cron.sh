@@ -34,21 +34,32 @@ update_crontab() {
   # Create a temporary file
   TEMP_CRON_FILE=$(mktemp)
 
-  # List current crontab entries
-  crontab -l > "$TEMP_CRON_FILE" 2>/dev/null
+  # List current crontab entries. A failed "crontab -l" must not be mistaken for an
+  # empty crontab, otherwise the install below would wipe every unrelated entry.
+  CRON_LIST_ERROR=$(crontab -l 2>&1 >"$TEMP_CRON_FILE")
+  if [ $? -ne 0 ] && ! echo "$CRON_LIST_ERROR" | grep -qi "no crontab"; then
+    echo "Error: could not read the current crontab, aborting without changes: $CRON_LIST_ERROR"
+    rm -f "$TEMP_CRON_FILE"
+    exit 1
+  fi
 
   # Remove any previous entry for the same script, including entries with a
-  # different schedule or an outdated script name
-  grep -v -e "$NEW_CRON_ENTRY" -e "$CRON_SCRIPT_PATH" "$TEMP_CRON_FILE" > "$TEMP_CRON_FILE.new"
+  # different schedule or an outdated script name. -F keeps paths and schedules
+  # from being interpreted as regexes.
+  grep -v -F -e "$NEW_CRON_ENTRY" -e "$CRON_SCRIPT_PATH" "$TEMP_CRON_FILE" > "$TEMP_CRON_FILE.new"
 
   # Add the new entry
   echo "$NEW_CRON_ENTRY" >> "$TEMP_CRON_FILE.new"
 
   # Install the new crontab file
-  crontab "$TEMP_CRON_FILE.new"
+  if ! crontab "$TEMP_CRON_FILE.new"; then
+    echo "Error: failed to install the updated crontab for $CRON_SCRIPT_PATH."
+    rm -f "$TEMP_CRON_FILE" "$TEMP_CRON_FILE.new"
+    exit 1
+  fi
 
   # Clean up
-  rm "$TEMP_CRON_FILE" "$TEMP_CRON_FILE.new"
+  rm -f "$TEMP_CRON_FILE" "$TEMP_CRON_FILE.new"
 }
 
 # Execute the function
