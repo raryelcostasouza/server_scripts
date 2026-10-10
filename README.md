@@ -202,6 +202,8 @@ log/       placeholder; real logs go to ~/server_scripts_logs/
 | `monitor_disk_usage.sh` | Runs the partition check across several partitions | `<threshold> <partition>...` |
 | `check_service_status.sh` | Alerts if a systemd unit is not active, and once more when it recovers | `<service>` |
 | `monitor_service_status.sh` | Runs the service check across several units | `<service>...` |
+| `check_website_health.sh` | Requests a URL and alerts if it is unreachable, returns 4xx/5xx, serves a WordPress/PHP crash page, or is missing the expected text; alerts once more when it recovers | `<url> [expected text]` |
+| `monitor_website_health.sh` | Runs the website check across several URLs with the same expected text | `<expected text> <url>...` |
 | `monitor_logs_unattended_upgrades.sh` | Reports errors and warnings from the last 7 days of the unattended-upgrades log (rotated files included), plus pending upgrades, packages kept back, stale apt lists, disabled automatic upgrades and pending reboots | — |
 
 ### `wmj/` — WordPress host
@@ -215,6 +217,7 @@ log/       placeholder; real logs go to ~/server_scripts_logs/
 | `monitor_wordpress_requirements_wmj.sh` | Compares the PHP, database and WordPress versions required by core, plugins and themes against what is installed |
 | `monitor_disk_usage_wmj.sh` | `/boot` and the LVM partition at an 80% threshold |
 | `monitor_service_status_wmj.sh` | `apache2`, `mariadb`, `fail2ban`, `ufw`, `php8.1-fpm.service` and `maldet.service` |
+| `monitor_website_health_wmj.sh` | Fetches `watmarpjan.org` and its `/en/`, `/pt/` and `/cn/` language entry points, and alerts when one is down or shows a critical WordPress error |
 | `certbot_health_check.sh` | Verifies certbot and runs a renewal dry-run |
 | `malware-detector-log-checker.sh` | Alerts on `INFECTION` entries in the maldet event log |
 | `cron_prod_wmj.sh`, `cron_prod_root.sh`, `cron_qa_wmj` | Cron installers |
@@ -306,6 +309,7 @@ schedules with `*/2 * * * *` for rapid testing — never run them on a productio
 | `0 6 * * 1` | `monitor_backups_wmj.sh` |
 | `0 7 * * 1` | `monitor_wordpress_requirements_wmj.sh` |
 | `*/15 * * * *` | `monitor_service_status_wmj.sh` (output to `/dev/null`) |
+| `*/15 * * * *` | `monitor_website_health_wmj.sh` (output to `/dev/null`) |
 | `30 3 1 * *` | `lib/clean_script_logs_older_n_days.sh` |
 
 **`wmj/cron_prod_root.sh`** (root crontab)

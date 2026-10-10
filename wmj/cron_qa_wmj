@@ -9,6 +9,7 @@ $script_dir/../lib/cron_qa_schedule.sh $script_dir/"monitor_disk_usage_wmj.sh"
 $script_dir/../lib/cron_qa_schedule.sh $script_dir/"monitor_backups_wmj.sh"
 $script_dir/../lib/cron_qa_schedule.sh $script_dir/"monitor_wordpress_requirements_wmj.sh"
 $script_dir/../lib/cron_qa_schedule.sh $script_dir/"monitor_service_status_wmj.sh"
+$script_dir/../lib/cron_qa_schedule.sh $script_dir/"monitor_website_health_wmj.sh"
 $script_dir/../lib/cron_qa_schedule.sh $script_dir/../lib/"monitor_logs_unattended_upgrades.sh"
 $script_dir/../lib/cron_qa_schedule.sh $script_dir/../lib/"clean_script_logs_older_n_days.sh"
 

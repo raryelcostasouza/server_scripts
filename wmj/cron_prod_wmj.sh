@@ -11,6 +11,7 @@ $script_dir/../lib/update_cron.sh "0 7 * * 1 /bin/bash -c "$script_dir/"monitor_
 # Redirected like ssh-login-monitor.sh: no vars_logging.sh, so the routine "is active"
 # lines would otherwise mail the user every 15 minutes
 $script_dir/../lib/update_cron.sh "*/15 * * * * /bin/bash -c "$script_dir/"monitor_service_status_wmj.sh >/dev/null"
+$script_dir/../lib/update_cron.sh "*/15 * * * * /bin/bash -c "$script_dir/"monitor_website_health_wmj.sh >/dev/null"
 $script_dir/../lib/update_cron.sh "30 3 1 * * /bin/bash -c "$script_dir/../lib/"clean_script_logs_older_n_days.sh"
 
 
