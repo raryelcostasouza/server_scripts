@@ -199,6 +199,8 @@ log/       placeholder; real logs go to ~/server_scripts_logs/
 | `check_remote_backup_freshness.sh` | Alerts if the newest file at an rclone path is older than N days | `<days> <rclone path>` |
 | `check_partition_disk_usage.sh` | Alerts if a partition exceeds a usage threshold | `<partition> <threshold>` |
 | `monitor_disk_usage.sh` | Runs the partition check across several partitions | `<threshold> <partition>...` |
+| `check_service_status.sh` | Alerts if a systemd unit is not active, and once more when it recovers | `<service>` |
+| `monitor_service_status.sh` | Runs the service check across several units | `<service>...` |
 | `monitor_logs_unattended_upgrades.sh` | Reports errors and warnings from the last 7 days of the unattended-upgrades log (rotated files included), plus pending upgrades, packages kept back, stale apt lists, disabled automatic upgrades and pending reboots | — |
 
 ### `wmj/` — WordPress host
@@ -210,6 +212,7 @@ log/       placeholder; real logs go to ~/server_scripts_logs/
 | `sync_wordpress_uploads.sh` | `rclone` sync of `wp-content/uploads` to Google Drive |
 | `monitor_backups_wmj.sh` | Checks backup freshness, required commands and crontab validity |
 | `monitor_disk_usage_wmj.sh` | `/boot` and the LVM partition at an 80% threshold |
+| `monitor_service_status_wmj.sh` | `apache2`, `mariadb`, `fail2ban`, `ufw`, `php8.1-fpm.service` and `maldet.service` |
 | `certbot_health_check.sh` | Verifies certbot and runs a renewal dry-run |
 | `malware-detector-log-checker.sh` | Alerts on `INFECTION` entries in the maldet event log |
 | `cron_prod_wmj.sh`, `cron_prod_root.sh`, `cron_qa_wmj` | Cron installers |
@@ -299,6 +302,7 @@ schedules with `*/2 * * * *` for rapid testing — never run them on a productio
 | `0 2 * * *` | `backup_wp_files_and_DB.sh` |
 | `0 0 * * 1` | `monitor_disk_usage_wmj.sh` |
 | `0 6 * * 1` | `monitor_backups_wmj.sh` |
+| `*/15 * * * *` | `monitor_service_status_wmj.sh` (output to `/dev/null`) |
 | `30 3 1 * *` | `lib/clean_script_logs_older_n_days.sh` |
 
 **`wmj/cron_prod_root.sh`** (root crontab)
