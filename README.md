@@ -225,6 +225,7 @@ log/       placeholder; real logs go to ~/server_scripts_logs/
 | `flux/monitor_disk_usage_flux.sh` | `/dev/sda1` at an 80% threshold |
 | `flux/cron_prod_flux.sh`, `cron_prod_root.sh`, `cron_qa_flux.sh` | Cron installers |
 | `generic/fail2ban-monitor.sh` | Alerts on bans found in the fail2ban log |
+| `generic/ssh-login-monitor.sh` | Alerts on every successful SSH login |
 
 ## How it works
 
@@ -247,6 +248,45 @@ renaming or rescheduling a job will not leave a stale duplicate behind.
 and `creds/telegram.sh` (`BOT_TOKEN`, `CHAT_ID`) are gitignored and must be created per
 host from the committed `*_template.sh` files.
 
+## SSH login alerts
+
+`generic/ssh-login-monitor.sh` reports every successful SSH login. It runs from root's
+crontab every 5 minutes.
+
+**Why 5 minutes and not every minute.** Detection latency is not the limiting factor:
+by the time the Telegram message is read and acted on, minutes have passed regardless,
+and an intruder with valid credentials does the damage in the first seconds. On a host
+where SSH is on a non-standard port behind a firewall and fail2ban, this alert is an
+audit trail to read, not a tripwire to race. A `* * * * *` entry would also add 1440
+cron lines a day to `/var/log/syslog` — degrading the very logs wanted during an
+incident — against no practical gain.
+
+Two deliberate departures from the usual pattern:
+
+- **It does not source `lib/vars_logging.sh`.** That helper opens a new log file per
+  run, which at this cadence would leave ~290 files a day in `~/server_scripts_logs/`.
+  The cron entry ends in `>/dev/null` for the same reason — otherwise the routine
+  "no new logins" line would mail root every 5 minutes. Anything worth knowing is sent
+  to Telegram.
+- **It reads journald, not `/var/log/auth.log`.** The position is stored as a journald
+  *cursor* in `~/server_scripts_logs/ssh-login-monitor.cursor`, so entries survive log
+  rotation and reboots and are reported exactly once — neither replayed nor skipped. A
+  byte offset into a text log gives neither guarantee once the file rotates.
+
+Other notes:
+
+- The first run only records the current journal position; it does not replay history.
+  Delete the cursor file to reset it.
+- If `journalctl` fails, it alerts once and drops a `.error` marker so the failure is not
+  re-reported every 30 seconds; the marker clears on the next healthy run. A cursor the
+  journal no longer holds is discarded so the monitor cannot wedge permanently.
+- Usernames reach the journal from the remote peer, so control characters are stripped
+  before the text goes into an alert.
+- The unit name is set by `SSH_UNIT` at the top of the script (`ssh.service` on Ubuntu).
+  A wrong value fails *silently* — after install, confirm with
+  `journalctl -u ssh.service | grep Accepted`.
+- Every successful login alerts, including your own and including `sftp`/`scp`.
+
 ## Cron schedules
 
 Installed by re-running the relevant script. QA variants (`cron_qa_*`) replace all
@@ -267,6 +307,8 @@ schedules with `*/2 * * * *` for rapid testing — never run them on a productio
 | --- | --- |
 | `0 1 * * *` | `backup_etc_dir.sh` |
 | `0 0 * * 1` | `lib/monitor_logs_unattended_upgrades.sh` |
+| `0 0 * * 1` | `generic/fail2ban-monitor.sh` |
+| `*/5 * * * *` | `generic/ssh-login-monitor.sh` |
 | `30 3 1 * *` | `lib/clean_script_logs_older_n_days.sh` |
 
 **`flux/cron_prod_flux.sh`** (user crontab)
@@ -283,6 +325,7 @@ schedules with `*/2 * * * *` for rapid testing — never run them on a productio
 | Schedule | Job |
 | --- | --- |
 | `0 0 * * 1` | `lib/monitor_logs_unattended_upgrades.sh` |
+| `*/5 * * * *` | `generic/ssh-login-monitor.sh` |
 | `30 3 1 * *` | `lib/clean_script_logs_older_n_days.sh` |
 
 > Note: the log cleanup uses `30 3 1 * *`, not `30 3 1 * 1`. When both the day-of-month
@@ -306,6 +349,7 @@ monitors to alert when one goes missing after an OS upgrade.
 | `flux-cli`, `jq` | `flux/monitor_node_confirmed_status.sh` |
 | `curl` | `lib/send_telegram_alert.sh` |
 | `fail2ban` | `generic/fail2ban-monitor.sh` |
+| `journalctl` | `generic/ssh-login-monitor.sh` |
 
 ## Troubleshooting
 
@@ -317,6 +361,7 @@ monitors to alert when one goes missing after an OS upgrade.
 | `xargs: chmod: File name too long` | the manual one-liner used `grep -lZ` on BSD grep | use `grep -l --null`, or just run `deploy.sh` |
 | Cron job silently does nothing | non-executable target, or missing `creds/*.sh` | check `~/server_scripts_logs/*.error.log` |
 | No Telegram alerts at all | `creds/telegram.sh` missing or wrong `BOT_TOKEN` / `CHAT_ID` | run `lib/send_telegram_alert.sh "test"` by hand |
+| SSH logins produce no alert | wrong `SSH_UNIT`, or the job is not in **root's** crontab | `journalctl -u ssh.service \| grep Accepted`, and `sudo crontab -l \| grep ssh-login` |
 
 ## License
 
