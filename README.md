@@ -199,7 +199,7 @@ log/       placeholder; real logs go to ~/server_scripts_logs/
 | `check_remote_backup_freshness.sh` | Alerts if the newest file at an rclone path is older than N days | `<days> <rclone path>` |
 | `check_partition_disk_usage.sh` | Alerts if a partition exceeds a usage threshold | `<partition> <threshold>` |
 | `monitor_disk_usage.sh` | Runs the partition check across several partitions | `<threshold> <partition>...` |
-| `monitor_logs_unattended_upgrades.sh` | Reports errors and warnings from the last 7 days of the unattended-upgrades log | — |
+| `monitor_logs_unattended_upgrades.sh` | Reports errors and warnings from the last 7 days of the unattended-upgrades log (rotated files included), plus pending upgrades, packages kept back, stale apt lists, disabled automatic upgrades and pending reboots | — |
 
 ### `wmj/` — WordPress host
 
