@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# See check_partition_disk_usage.sh for why vars_logging.sh is not sourced here: callers
+# that run on a daily or slower cadence source it themselves and the redirect is inherited.
+
 # Check if at least two arguments are provided (threshold and partitions)
 if [ "$#" -lt 2 ]; then
     echo "Usage: $0 <threshold_percentage> partition1 [partition2 ... partitionN]"
@@ -21,17 +24,14 @@ partitions=("${@:2}")
 # Determine the directory of the current script
 script_dir="$(dirname "$(readlink -f "$0")")"
 
-# Source the vars_logging.sh script for logging functions
-source "$script_dir/vars_logging.sh"
-
 # Path to the check_disk_usage.sh script
 CHECK_SCRIPT="$script_dir/check_partition_disk_usage.sh"
 
 # Loop through each provided partition and check its usage
 for PARTITION in "${partitions[@]}"; do
     echo "Checking usage for $PARTITION..."
-    $CHECK_SCRIPT "$PARTITION" "$threshold"
+    $CHECK_SCRIPT "$PARTITION" "$threshold" space
+    # Inodes run out independently of free space and the symptoms ("No space left on
+    # device" with df showing room) are confusing without this check
+    $CHECK_SCRIPT "$PARTITION" "$threshold" inodes
 done
-
-# Check if the error log file is not empty
-$script_dir/check_if_error_log_not_empty.sh "$ERROR_LOG_FILE"
