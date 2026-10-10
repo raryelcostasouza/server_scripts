@@ -218,7 +218,7 @@ log/       placeholder; real logs go to ~/server_scripts_logs/
 | `monitor_disk_usage_wmj.sh` | `/boot` and the LVM partition at an 80% threshold |
 | `monitor_service_status_wmj.sh` | `apache2`, `mariadb`, `fail2ban`, `ufw`, `php8.1-fpm.service` and `maldet.service` |
 | `monitor_website_health_wmj.sh` | Fetches `watmarpjan.org` and its `/en/`, `/pt/` and `/cn/` language entry points, and alerts when one is down or shows a critical WordPress error |
-| `certbot_health_check.sh` | Verifies certbot and runs a renewal dry-run |
+| `certbot_health_check.sh` | Daily: alerts when certbot cannot run, no renewal schedule is active, a certificate on disk or the one actually served is under 21 days from expiry, or a renewal dry-run fails |
 | `malware-detector-log-checker.sh` | Alerts on `INFECTION` entries in the maldet event log |
 | `cron_prod_wmj.sh`, `cron_prod_root.sh`, `cron_qa_wmj` | Cron installers |
 | `restore/restore_backup.sh` | Reference commands for a duplicity restore (run manually) |
@@ -317,6 +317,7 @@ schedules with `*/2 * * * *` for rapid testing — never run them on a productio
 | Schedule | Job |
 | --- | --- |
 | `0 1 * * *` | `backup_etc_dir.sh` |
+| `0 5 * * *` | `certbot_health_check.sh` |
 | `0 0 * * 1` | `lib/monitor_logs_unattended_upgrades.sh` |
 | `0 0 * * 1` | `generic/fail2ban-monitor.sh` |
 | `*/5 * * * *` | `generic/ssh-login-monitor.sh` |
@@ -355,7 +356,7 @@ monitors to alert when one goes missing after an OS upgrade.
 | `duplicity` | `wmj/backup_etc_dir.sh`, `wmj/backup_wp_files_and_DB.sh` |
 | `rclone` | the `wmj` backup and sync scripts, `check_remote_backup_freshness.sh` |
 | `mysqldump`, `7za`, `tar` | `wmj/backup_wp_files_and_DB.sh` |
-| `certbot` | `wmj/certbot_health_check.sh` |
+| `certbot`, `openssl` | `wmj/certbot_health_check.sh` |
 | `maldet` | `wmj/malware-detector-log-checker.sh` |
 | `flux-cli`, `jq` | `flux/monitor_node_confirmed_status.sh` |
 | `curl` | `lib/send_telegram_alert.sh` |

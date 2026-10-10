@@ -5,7 +5,9 @@ source "$script_dir/../lib/vars_logging.sh"
 source "$script_dir/../creds/duplicity.sh"
 
 $script_dir/../lib/update_cron.sh "20 8 * * * /bin/bash -c "$script_dir/"backup_etc_dir.sh"
-$script_dir/../lib/update_cron.sh "0 0 * * 1 /bin/bash -c "$script_dir/"certbot_health_check.sh"
+# Daily: a weekly check can miss a failing renewal for six days, and certbot only starts
+# renewing with 30 days left
+$script_dir/../lib/update_cron.sh "0 5 * * * /bin/bash -c "$script_dir/"certbot_health_check.sh"
 $script_dir/../lib/update_cron.sh "0 0 * * 1 /bin/bash -c "$script_dir/../lib/"monitor_logs_unattended_upgrades.sh"
 $script_dir/../lib/update_cron.sh "0 0 * * 1 /bin/bash -c "$script_dir/../generic/"fail2ban-monitor.sh"
 $script_dir/../lib/update_cron.sh "*/5 * * * * /bin/bash -c "$script_dir/../generic/"ssh-login-monitor.sh >/dev/null"
