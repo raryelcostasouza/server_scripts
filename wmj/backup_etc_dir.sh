@@ -5,6 +5,9 @@ script_dir="$(dirname "$(readlink -f "$0")")"
 source "$script_dir/../lib/vars_logging.sh"
 source "$script_dir/../creds/duplicity.sh"
 
+# Abort instead of running a backup that would silently produce nothing
+$script_dir/../lib/check_required_commands.sh "$DUPLICITY_CMD" rclone || exit 1
+
 printf "\n\n"
 echo "Removing all incrementals older than 1 full backups"
 $DUPLICITY_CMD --allow-source-mismatch remove-all-inc-of-but-n-full 1 --force rclone://gdrive://WMJ_Server_Backup/Server_Config/etc

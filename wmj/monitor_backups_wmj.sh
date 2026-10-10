@@ -2,6 +2,9 @@
 
 script_dir="$(dirname "$(readlink -f "$0")")"
 source "$script_dir/../lib/vars_logging.sh"
+source "$script_dir/../creds/duplicity.sh"
+
+$script_dir/../lib/check_required_commands.sh "$DUPLICITY_CMD" rclone mysqldump 7za tar
 
 # Daily backups, so a 3 day window absorbs a single failed run before alerting
 $script_dir/../lib/check_script_ran_recently.sh 3 backup_wp_files_and_DB.sh
