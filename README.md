@@ -300,45 +300,53 @@ Other notes:
 Installed by re-running the relevant script. QA variants (`cron_qa_*`) replace all
 schedules with `*/2 * * * *` for rapid testing — never run them on a production host.
 
-**`wmj/cron_prod_wmj.sh`** (user crontab)
+All scheduled jobs, across both hosts:
 
-| Schedule | Job |
-| --- | --- |
-| `0 2 * * *` | `backup_wp_files_and_DB.sh` |
-| `0 0 * * 1` | `monitor_disk_usage_wmj.sh` |
-| `0 6 * * 1` | `monitor_backups_wmj.sh` |
-| `0 7 * * 1` | `monitor_wordpress_requirements_wmj.sh` |
-| `*/15 * * * *` | `monitor_service_status_wmj.sh` (output to `/dev/null`) |
-| `*/15 * * * *` | `monitor_website_health_wmj.sh` (output to `/dev/null`) |
-| `30 3 1 * *` | `lib/clean_script_logs_older_n_days.sh` |
+| Script | Host | Crontab | Cron | Cadence |
+| --- | --- | --- | --- | --- |
+| `wmj/backup_wp_files_and_DB.sh` | wmj | `wmj` | `0 2 * * *` | Every day at 02:00 |
+| `wmj/backup_etc_dir.sh` | wmj | root | `20 8 * * *` | Every day at 08:20 |
+| `wmj/certbot_health_check.sh` | wmj | root | `0 5 * * *` | Every day at 05:00 |
+| `wmj/monitor_disk_usage_wmj.sh` | wmj | `wmj` | `0 * * * *` | Every hour, on the hour |
+| `wmj/monitor_service_status_wmj.sh` | wmj | `wmj` | `*/15 * * * *` | Every 15 minutes |
+| `wmj/monitor_website_health_wmj.sh` | wmj | `wmj` | `*/15 * * * *` | Every 15 minutes |
+| `wmj/monitor_backups_wmj.sh` | wmj | `wmj` | `0 6 * * 1` | Every Monday at 06:00 |
+| `wmj/monitor_wordpress_requirements_wmj.sh` | wmj | `wmj` | `0 7 * * 1` | Every Monday at 07:00 |
+| `wmj/monitor_wordpress_integrity_root.sh` | wmj | root | `0 9 * * 1` | Every Monday at 09:00 |
+| `wmj/malware-detector-log-checker.sh` | wmj | root | `0 21 * * 0` | Every Sunday at 21:00 |
+| `wmj/monitor_backup_restore_wmj.sh` | wmj | `wmj` | `0 4 1 * *` | 1st of every month at 04:00 |
+| `wmj/monitor_backup_restore_root.sh` | wmj | root | `0 6 1 * *` | 1st of every month at 06:00 |
+| `wmj/monitor_domain_expiry_wmj.sh` | wmj | `wmj` | `0 7 1 * *` | 1st of every month at 07:00 |
+| `flux/monitor_node_confirmed_status.sh` | flux | `flux` | `0 * * * *` | Every hour, on the hour |
+| `flux/monitor_disk_usage_flux.sh` | flux | `flux` | `0 0 * * *` | Every day at midnight |
+| `generic/ssh-login-monitor.sh` | wmj, flux | root | `*/5 * * * *` | Every 5 minutes |
+| `generic/fail2ban-monitor.sh` | wmj | root | `0 0 * * 1` | Every Monday at midnight |
+| `lib/monitor_logs_unattended_upgrades.sh` | flux | `flux` | `0 0 * * *` | Every day at midnight |
+| `lib/monitor_logs_unattended_upgrades.sh` | wmj, flux | root | `0 0 * * 1` | Every Monday at midnight |
+| `lib/clean_script_logs_older_n_days.sh` | wmj, flux | `wmj`/`flux` + root | `30 3 1 * *` | 1st of every month at 03:30 |
 
-**`wmj/cron_prod_root.sh`** (root crontab)
+Jobs that write to `/dev/null` in the crontab — `monitor_disk_usage_wmj.sh`,
+`monitor_service_status_wmj.sh`, `monitor_website_health_wmj.sh` and
+`ssh-login-monitor.sh` — do so because they run often and would otherwise mail the
+owning user on every healthy run.
 
-| Schedule | Job |
-| --- | --- |
-| `0 1 * * *` | `backup_etc_dir.sh` |
-| `0 5 * * *` | `certbot_health_check.sh` |
-| `0 0 * * 1` | `lib/monitor_logs_unattended_upgrades.sh` |
-| `0 0 * * 1` | `generic/fail2ban-monitor.sh` |
-| `*/5 * * * *` | `generic/ssh-login-monitor.sh` |
-| `30 3 1 * *` | `lib/clean_script_logs_older_n_days.sh` |
+One schedule is **not** managed by `update_cron.sh`: the maldet scan itself
+(`0 19 * * 0 /usr/local/maldetect/maldet -a ...`, every Sunday at 19:00) is added by
+hand, because `update_cron.sh` only manages entries that invoke a `.sh`.
+`malware-detector-log-checker.sh` reads the resulting log two hours later.
 
-**`flux/cron_prod_flux.sh`** (user crontab)
+Per-installer breakdown:
 
-| Schedule | Job |
-| --- | --- |
-| `0 * * * *` | `monitor_node_confirmed_status.sh` |
-| `0 0 * * *` | `monitor_disk_usage_flux.sh` |
-| `0 0 * * *` | `lib/monitor_logs_unattended_upgrades.sh` |
-| `30 3 1 * *` | `lib/clean_script_logs_older_n_days.sh` |
-
-**`flux/cron_prod_root.sh`** (root crontab)
-
-| Schedule | Job |
-| --- | --- |
-| `0 0 * * 1` | `lib/monitor_logs_unattended_upgrades.sh` |
-| `*/5 * * * *` | `generic/ssh-login-monitor.sh` |
-| `30 3 1 * *` | `lib/clean_script_logs_older_n_days.sh` |
+- **`wmj/cron_prod_wmj.sh`** (`wmj` crontab) — the WordPress backup, disk, service,
+  website, backup-freshness, restore-test, requirements and domain-expiry jobs, plus
+  log cleanup.
+- **`wmj/cron_prod_root.sh`** (root crontab) — `/etc` backup, certbot, WordPress
+  integrity, root restore test, unattended-upgrade and fail2ban logs, SSH logins,
+  maldet log check, plus log cleanup.
+- **`flux/cron_prod_flux.sh`** (`flux` crontab) — node status, disk usage,
+  unattended-upgrade logs, plus log cleanup.
+- **`flux/cron_prod_root.sh`** (root crontab) — unattended-upgrade logs, SSH logins,
+  plus log cleanup.
 
 > Note: the log cleanup uses `30 3 1 * *`, not `30 3 1 * 1`. When both the day-of-month
 > and day-of-week fields are restricted, cron ORs them, so `30 3 1 * 1` would fire on
