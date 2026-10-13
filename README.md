@@ -383,6 +383,63 @@ monitors to alert when one goes missing after an OS upgrade.
 | No Telegram alerts at all | `creds/telegram.sh` missing or wrong `BOT_TOKEN` / `CHAT_ID` | run `lib/send_telegram_alert.sh "test"` by hand |
 | SSH logins produce no alert | wrong `SSH_UNIT`, or the job is not in **root's** crontab | `journalctl -u ssh.service \| grep Accepted`, and `sudo crontab -l \| grep ssh-login` |
 
+### WordPress backup: “Error accessing possibly locked file”
+
+Duplicity uses this message for files it cannot read, not just locked files. If
+`wp-config.php`, `wp-cache-config.php` or Wordfence's `wp-content/wflogs/*.php` fail,
+check access as the backup user (`pmpanya` on cloud-server-0):
+
+```bash
+sudo -u pmpanya test -r /home/pmpanya/domains/watmarpjan.org/public_html/wp/wp-config.php
+sudo getfacl /home/pmpanya/domains/watmarpjan.org/public_html/wp/wp-config.php
+```
+
+A failed `test -r` confirms an access problem. The backup can stay in `pmpanya`'s
+crontab: an administrator can grant that user read access with filesystem ACLs,
+without changing `www-data` ownership, making sensitive files world-readable, or
+running the backup script as root. `pmpanya` can set ACLs on files it owns; files
+owned by `www-data` need their owner or root to do this. The host needs `getfacl`
+and `setfacl` (the Ubuntu `acl` package) and a filesystem supporting POSIX ACLs.
+
+Run this once as an administrator, scoped to the directory the script backs up:
+
+```bash
+site=/home/pmpanya/domains/watmarpjan.org
+sudo setfacl -R -m u:pmpanya:rX "$site"
+sudo find "$site" -type d -exec setfacl -m d:u:pmpanya:r-x {} +
+```
+
+The access ACL covers existing files and allows directory traversal; the default
+ACL on every existing directory covers newly created children. Neither grant adds
+write access for `pmpanya`. Review existing ACLs before applying: `setfacl`
+recalculates the ACL mask, which can also enable previously masked permissions for
+other named users or groups. Parent directories above `$site` must also be
+traversable by `pmpanya`.
+
+Check the result as the backup user (no output and a zero exit status means the
+tree is readable and traversable):
+
+```bash
+sudo -u pmpanya find /home/pmpanya/domains/watmarpjan.org \
+  \( ! -readable -o \( -type d ! -executable \) \) -print
+```
+
+This checks the whole source tree, including paths intentionally excluded by
+`~/.duplicity/ignore`. Then run
+`/home/pmpanya/server_scripts/wmj/backup_wp_files_and_DB.sh` **as `pmpanya`** and
+review both its `.log` and `.error.log` in `/home/pmpanya/server_scripts_logs/`.
+“Error log empty” only describes stderr: Duplicity can report skipped files and
+an `Errors` count on stdout, so it does not prove the backup is complete.
+
+Plugins can replace files or apply `chmod 600`, restricting the ACL mask even
+when a default ACL exists. If failures recur, inspect `getfacl` again, reapply the
+scoped access ACL, and correct the writer's permission policy; do not hide the
+errors by excluding configuration files needed for a restore. If files are
+readable but errors persist, investigate concurrent writes or deletion rather
+than broadening permissions. Running as `www-data` is not a drop-in alternative:
+it also needs access to the backup user's database credentials, local archives,
+Duplicity cache and rclone configuration.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
