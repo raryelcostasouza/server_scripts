@@ -27,7 +27,7 @@ read_core_version() {
     sed -n "s/^[[:space:]]*\\\$$1[[:space:]]*=[[:space:]]*'\\([^']*\\)'.*/\\1/p" "$VERSION_FILE" | head -n 1
 }
 
-# Server versions carry suffixes ("8.1.2-1ubuntu2.14", "5.5.5-10.6.18-MariaDB"), and the
+# Server versions carry suffixes ("8.1.2-1ubuntu2.14", "10.6.18-MariaDB"), and the
 # leading numbers are what WordPress itself compares
 normalize_version() {
     printf '%s' "$1" | sed 's/^[^0-9]*//; s/[^0-9.].*//'
@@ -102,12 +102,38 @@ else
 fi
 
 DB_VERSION=""
-if command -v mysql >/dev/null 2>&1; then
-    DB_VERSION=$(normalize_version "$(mysql -N -B -e 'SELECT VERSION();' 2>/dev/null | head -n 1)")
+# SHORTINIT connects using wp-config.php without loading plugins or themes.
+# Never load site PHP as root; the client fallback below does not execute site code.
+if [ "$(id -u)" -ne 0 ] && command -v "$PHP_BIN" >/dev/null 2>&1 && [ -r "$WP_ROOT/wp-load.php" ]; then
+    # shellcheck disable=SC2016
+    DB_VERSION=$("$PHP_BIN" -d display_errors=stderr -r '
+        define("SHORTINIT", true);
+        require $argv[1];
+        global $wpdb;
+        $version = $wpdb->get_var("SELECT VERSION()");
+        if (!$version) {
+            exit(1);
+        }
+        echo $version;
+    ' "$WP_ROOT/wp-load.php" 2>/dev/null) || DB_VERSION=""
 fi
 
 if [ -z "$DB_VERSION" ]; then
-    ISSUES+="Could not determine the database server version (mysql client missing or no credentials in ~/.my.cnf)\n"
+    for DB_CLIENT in mariadb mysql; do
+        command -v "$DB_CLIENT" >/dev/null 2>&1 || continue
+        DB_VERSION=$("$DB_CLIENT" -N -B -e 'SELECT VERSION();' 2>/dev/null) || DB_VERSION=""
+        [ -n "$DB_VERSION" ] && break
+    done
+fi
+
+# MariaDB can prepend a MySQL compatibility version to its actual server version.
+if [[ "$DB_VERSION" == 5.5.5-*-MariaDB* ]]; then
+    DB_VERSION="${DB_VERSION#5.5.5-}"
+fi
+DB_VERSION=$(normalize_version "$DB_VERSION")
+
+if [ -z "$DB_VERSION" ]; then
+    ISSUES+="Could not determine the database server version (run as the site owner with access to WordPress database credentials, or configure ~/.my.cnf for the mariadb/mysql client)\n"
 elif [ -n "$REQUIRED_MYSQL" ] && version_lt "$DB_VERSION" "$REQUIRED_MYSQL"; then
     ISSUES+="Database server $DB_VERSION is below $REQUIRED_MYSQL, required by WordPress core $WP_VERSION\n"
 else
