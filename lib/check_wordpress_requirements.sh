@@ -116,12 +116,14 @@ if [ "$(id -u)" -ne 0 ] && command -v "$PHP_BIN" >/dev/null 2>&1 && [ -r "$WP_RO
         }
         echo $version;
     ' "$WP_ROOT/wp-load.php" 2>/dev/null) || DB_VERSION=""
+    [[ "$DB_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+[^[:space:]]*$ ]] || DB_VERSION=""
 fi
 
 if [ -z "$DB_VERSION" ]; then
     for DB_CLIENT in mariadb mysql; do
         command -v "$DB_CLIENT" >/dev/null 2>&1 || continue
         DB_VERSION=$("$DB_CLIENT" -N -B -e 'SELECT VERSION();' 2>/dev/null) || DB_VERSION=""
+        [[ "$DB_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+[^[:space:]]*$ ]] || DB_VERSION=""
         [ -n "$DB_VERSION" ] && break
     done
 fi
