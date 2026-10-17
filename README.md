@@ -161,7 +161,7 @@ Then install the cron entries for the host's role:
 
 ```bash
 ./wmj/cron_prod_wmj.sh         # or ./flux/cron_prod_flux.sh
-sudo ./wmj/cron_prod_root.sh   # root-owned jobs, where applicable
+sudo -H /root/server_scripts/wmj/cron_prod_root.sh   # separate root-owned clone; see below
 ```
 
 Verify:
@@ -186,7 +186,7 @@ log/       placeholder; real logs go to ~/server_scripts_logs/
 
 | Script | Purpose | Args |
 | --- | --- | --- |
-| `update_cron.sh` | Installs a cron entry, replacing any prior entry for the same script. Refuses non-executable targets. | `"<cron entry>"` |
+| `update_cron.sh` | Installs/replaces a cron entry, or removes that script's entries from the current user's crontab. Refuses non-executable install targets. | `"<cron entry>"` or `--remove <absolute script path>` |
 | `cron_qa_schedule.sh` | Wraps `update_cron.sh` with a fixed `*/2 * * * *` schedule for QA runs | `<script path>` |
 | `vars_logging.sh` | Sets `STANDARD_LOG_FILE` / `ERROR_LOG_FILE` and redirects stdout and stderr to them | sourced |
 | `create_logs_dir.sh` | Creates `~/server_scripts_logs` if missing | — |
@@ -316,13 +316,13 @@ for 18:00 Saturday there, which is 08:00 Saturday in Brasília time (UTC−3).
 
 | Script | Host | Crontab | Cron | Cadence |
 | --- | --- | --- | --- | --- |
-| `wmj/backup_wp_files_and_DB.sh` | wmj | `wmj` | `0 2 * * *` | Every day at 02:00 |
+| `wmj/backup_wp_files_and_DB.sh` | wmj | root | `0 2 * * *` | Every day at 02:00 |
 | `wmj/backup_etc_dir.sh` | wmj | root | `20 8 * * *` | Every day at 08:20 |
 | `wmj/certbot_health_check.sh` | wmj | root | `0 5 * * *` | Every day at 05:00 |
 | `wmj/monitor_disk_usage_wmj.sh` | wmj | `wmj` | `0 * * * *` | Every hour, on the hour |
 | `wmj/monitor_service_status_wmj.sh` | wmj | `wmj` | `*/15 * * * *` | Every 15 minutes |
 | `wmj/monitor_website_health_wmj.sh` | wmj | `wmj` | `*/15 * * * *` | Every 15 minutes |
-| `wmj/monitor_backups_wmj.sh` | wmj | `wmj` | `0 18 * * 6` | Every Saturday at 18:00 Bangkok / 08:00 Brasília |
+| `wmj/monitor_backups_wmj.sh` | wmj | root | `0 18 * * 6` | Every Saturday at 18:00 Bangkok / 08:00 Brasília |
 | `wmj/monitor_wordpress_requirements_root.sh` | wmj | root | `0 18 * * 6` | Every Saturday at 18:00 Bangkok / 08:00 Brasília |
 | `wmj/monitor_wordpress_integrity_root.sh` | wmj | root | `0 18 * * 6` | Every Saturday at 18:00 Bangkok / 08:00 Brasília |
 | `wmj/malware-detector-log-checker.sh` | wmj | root | `0 18 * * 6` | Every Saturday at 18:00 Bangkok / 08:00 Brasília |
@@ -350,11 +350,13 @@ at the shared 18:00 Bangkok / 08:00 Brasília Saturday time for weekly alerting.
 
 Per-installer breakdown:
 
-- **`wmj/cron_prod_wmj.sh`** (`wmj` crontab) — the WordPress backup, disk, service,
-  website, backup-freshness, restore-test and domain-expiry jobs, plus log cleanup.
-- **`wmj/cron_prod_root.sh`** (root crontab) — `/etc` backup, certbot, WordPress
-  integrity and requirements, root restore test, unattended-upgrade and fail2ban
-  logs, SSH logins, maldet log check, plus log cleanup.
+- **`wmj/cron_prod_wmj.sh`** (`wmj` crontab) — disk, service, website, restore-test,
+  and domain-expiry jobs, plus log cleanup. Removes the old WordPress
+  backup and backup-freshness entries from this user's crontab.
+- **`wmj/cron_prod_root.sh`** (root crontab) — WordPress and `/etc` backups,
+  backup-freshness monitoring, certbot, WordPress
+  integrity and requirements, root restore test, unattended-upgrade and fail2ban logs, SSH logins,
+  maldet log check, plus log cleanup.
 - **`flux/cron_prod_flux.sh`** (`flux` crontab) — node status, disk usage,
   unattended-upgrade logs, plus log cleanup.
 - **`flux/cron_prod_root.sh`** (root crontab) — unattended-upgrade logs, SSH logins,
@@ -394,6 +396,37 @@ monitors to alert when one goes missing after an OS upgrade.
 | Cron job silently does nothing | non-executable target, or missing `creds/*.sh` | check `~/server_scripts_logs/*.error.log` |
 | No Telegram alerts at all | `creds/telegram.sh` missing or wrong `BOT_TOKEN` / `CHAT_ID` | run `lib/send_telegram_alert.sh "test"` by hand |
 | SSH logins produce no alert | wrong `SSH_UNIT`, or the job is not in **root's** crontab | `journalctl -u ssh.service \| grep Accepted`, and `sudo crontab -l \| grep ssh-login` |
+
+### WordPress backups as root
+
+The 02:00 backup runs as root to read restricted files such as `wp-config.php`,
+which is essential for restores. The source defaults to
+`/home/pmpanya/domains/watmarpjan.org`; set an absolute `WORDPRESS_BACKUP_SOURCE` in
+root's backup credentials to override it. Remote destinations are unchanged.
+
+To migrate:
+
+1. Use a separate **root-owned checkout** at `/root/server_scripts` with
+   `creds/duplicity.sh` and `creds/telegram.sh` (mode `600`). Keep the checkout,
+   credentials, tools and parent directories unwritable by the site user or
+   `www-data`; never run root jobs from the user-owned checkout.
+2. Configure root's `gdrive` rclone remote, `/root/.duplicity/ignore`, and database
+   access to `wmj_guests` and `wmj_org_wordpress` (socket authentication or a mode-600
+   `/root/.my.cnf`). Preserve archive passphrases and review exclusions so essential
+   configuration is included.
+3. As `pmpanya`, rerun `/home/pmpanya/server_scripts/wmj/cron_prod_wmj.sh` to remove
+   the old backup and monitor entries. Remove entries using other checkout paths
+   manually, and wait for any running backup to finish.
+4. As root, test `/root/server_scripts/wmj/backup_wp_files_and_DB.sh`, inspect both
+   logs in `/root/server_scripts_logs/`, and verify a restore. Install cron with
+   `sudo -H /root/server_scripts/wmj/cron_prod_root.sh`. Check both crontabs: only
+   root should run the backup and `monitor_backups_wmj.sh`.
+
+New database archives use `/root/DB`; old user archives and logs are not migrated.
+Root avoids permission errors but increases the impact of compromised backup code
+and does not provide snapshot consistency. File backups remain **unencrypted**:
+restrict remote access. Review stdout as well as stderr—“Error log empty” does not
+prove that no files were skipped.
 
 ## License
 
