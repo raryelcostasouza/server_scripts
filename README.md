@@ -197,7 +197,7 @@ log/       placeholder; real logs go to ~/server_scripts_logs/
 | `check_required_commands.sh` | Alerts if any of the given commands is not in `PATH` | `<cmd>...` |
 | `check_script_ran_recently.sh` | Alerts if no log for a script exists within N days | `<days> <script name>` |
 | `check_remote_backup_freshness.sh` | Alerts if the newest file at an rclone path is older than N days | `<days> <rclone path>` |
-| `check_wordpress_requirements.sh` | Reads `wp-includes/version.php` plus the `Requires PHP` / `Requires at least` headers of every plugin and theme, and alerts if the installed PHP, database server or WordPress version is below what they require | `<wordpress root> [php binary]` |
+| `check_wordpress_requirements.sh` | Reads `wp-includes/version.php` plus the `Requires PHP` / `Requires at least` headers of every plugin and theme, and alerts if the installed PHP, database server or WordPress version is below what they require | `<wordpress root> [php binary] [run as user]` |
 | `check_partition_disk_usage.sh` | Alerts if a partition exceeds a usage threshold | `<partition> <threshold>` |
 | `monitor_disk_usage.sh` | Runs the partition check across several partitions | `<threshold> <partition>...` |
 | `check_service_status.sh` | Alerts if a systemd unit is not active, and once more when it recovers | `<service>` |
@@ -206,10 +206,13 @@ log/       placeholder; real logs go to ~/server_scripts_logs/
 | `monitor_website_health.sh` | Runs the website check across several URLs with the same expected text | `<expected text> <url>...` |
 | `monitor_logs_unattended_upgrades.sh` | Reports errors and warnings from the last 7 days of the unattended-upgrades log (rotated files included), plus pending upgrades, packages kept back, stale apt lists, disabled automatic upgrades and pending reboots | — |
 
-Run `check_wordpress_requirements.sh` as the site owner with the matching PHP CLI
-binary. It queries the database configured in WordPress using a minimal
-`SHORTINIT` bootstrap, without loading plugins or themes. If that fails (or the
-check runs as root), it falls back to `mariadb` or `mysql` using `~/.my.cnf`.
+Run `check_wordpress_requirements.sh` with the matching PHP CLI binary. It queries
+the database configured in WordPress using a minimal `SHORTINIT` bootstrap, without
+loading plugins or themes. Only the WordPress owner can read the credentials in
+wp-config.php, so on a host where that user is not the one running the check, start it
+from root's crontab and pass the owner as the third argument: the query is then dropped
+to that user with `runuser` and never runs as root. If the query fails (or the check
+runs as root without an owner), it falls back to `mariadb` or `mysql` using `~/.my.cnf`.
 MariaDB's `5.5.5-` compatibility prefix is ignored when comparing versions.
 
 ### `wmj/` — WordPress host
@@ -220,7 +223,7 @@ MariaDB's `5.5.5-` compatibility prefix is ignored when comparing versions.
 | `backup_etc_dir.sh` | duplicity backup of `/etc` to Google Drive, with cleanup and incremental logic |
 | `sync_wordpress_uploads.sh` | `rclone` sync of `wp-content/uploads` to Google Drive |
 | `monitor_backups_wmj.sh` | Checks backup freshness, required commands and crontab validity |
-| `monitor_wordpress_requirements_wmj.sh` | Compares the PHP, database and WordPress versions required by core, plugins and themes against what is installed |
+| `monitor_wordpress_requirements_root.sh` | Compares the PHP, database and WordPress versions required by core, plugins and themes against what is installed |
 | `monitor_disk_usage_wmj.sh` | `/boot` and the LVM partition at an 80% threshold |
 | `monitor_service_status_wmj.sh` | `apache2`, `mariadb`, `fail2ban`, `ufw`, `php8.1-fpm.service` and `maldet.service` |
 | `monitor_website_health_wmj.sh` | Fetches `watmarpjan.org` and its `/en/`, `/pt/` and `/cn/` language entry points, and alerts when one is down or shows a critical WordPress error |
@@ -320,7 +323,7 @@ for 18:00 Saturday there, which is 08:00 Saturday in Brasília time (UTC−3).
 | `wmj/monitor_service_status_wmj.sh` | wmj | `wmj` | `*/15 * * * *` | Every 15 minutes |
 | `wmj/monitor_website_health_wmj.sh` | wmj | `wmj` | `*/15 * * * *` | Every 15 minutes |
 | `wmj/monitor_backups_wmj.sh` | wmj | `wmj` | `0 18 * * 6` | Every Saturday at 18:00 Bangkok / 08:00 Brasília |
-| `wmj/monitor_wordpress_requirements_wmj.sh` | wmj | `wmj` | `0 18 * * 6` | Every Saturday at 18:00 Bangkok / 08:00 Brasília |
+| `wmj/monitor_wordpress_requirements_root.sh` | wmj | root | `0 18 * * 6` | Every Saturday at 18:00 Bangkok / 08:00 Brasília |
 | `wmj/monitor_wordpress_integrity_root.sh` | wmj | root | `0 18 * * 6` | Every Saturday at 18:00 Bangkok / 08:00 Brasília |
 | `wmj/malware-detector-log-checker.sh` | wmj | root | `0 18 * * 6` | Every Saturday at 18:00 Bangkok / 08:00 Brasília |
 | `wmj/monitor_backup_restore_wmj.sh` | wmj | `wmj` | `0 4 1 * *` | 1st of every month at 04:00 |
@@ -348,11 +351,10 @@ at the shared 18:00 Bangkok / 08:00 Brasília Saturday time for weekly alerting.
 Per-installer breakdown:
 
 - **`wmj/cron_prod_wmj.sh`** (`wmj` crontab) — the WordPress backup, disk, service,
-  website, backup-freshness, restore-test, requirements and domain-expiry jobs, plus
-  log cleanup.
+  website, backup-freshness, restore-test and domain-expiry jobs, plus log cleanup.
 - **`wmj/cron_prod_root.sh`** (root crontab) — `/etc` backup, certbot, WordPress
-  integrity, root restore test, unattended-upgrade and fail2ban logs, SSH logins,
-  maldet log check, plus log cleanup.
+  integrity and requirements, root restore test, unattended-upgrade and fail2ban
+  logs, SSH logins, maldet log check, plus log cleanup.
 - **`flux/cron_prod_flux.sh`** (`flux` crontab) — node status, disk usage,
   unattended-upgrade logs, plus log cleanup.
 - **`flux/cron_prod_root.sh`** (root crontab) — unattended-upgrade logs, SSH logins,

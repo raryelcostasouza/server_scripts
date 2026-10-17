@@ -3,8 +3,8 @@
 script_dir="$(dirname "$(readlink -f "$0")")"
 
 # Check if the correct number of arguments is provided
-if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
-    echo "Usage: $0 <wordpress_root> [php_binary]"
+if [ "$#" -lt 1 ] || [ "$#" -gt 3 ]; then
+    echo "Usage: $0 <wordpress_root> [php_binary] [run_as_user]"
     exit 1
 fi
 
@@ -12,6 +12,10 @@ WP_ROOT="$1"
 # The site is served by php-fpm, so pass the matching CLI binary (php8.1, php8.2, ...)
 # whenever the default `php` on the host is a different branch
 PHP_BIN="${2:-php}"
+# Only the site owner can read wp-config.php, which holds the database credentials. The
+# caller therefore starts this as root and passes that user, so the database query below
+# is dropped to it instead of running as root.
+RUN_AS_USER="${3:-}"
 VERSION_FILE="$WP_ROOT/wp-includes/version.php"
 
 printf "\n\n"
@@ -20,6 +24,21 @@ echo "Checking WordPress version requirements under $WP_ROOT"
 if [ ! -r "$VERSION_FILE" ]; then
     $script_dir/send_telegram_alert.sh "$(hostname) Warning:\n\n $VERSION_FILE is missing or unreadable, so the WordPress requirements check cannot run. Confirm the WordPress root path."
     exit 2
+fi
+
+if [ -n "$RUN_AS_USER" ]; then
+    if [ "$(id -u)" -ne 0 ]; then
+        $script_dir/send_telegram_alert.sh "$(hostname) Warning:\n\n The WordPress requirements check is configured to query the database as \"$RUN_AS_USER\" but was not started as root, so it cannot drop privileges. Schedule it from root's crontab."
+        exit 2
+    fi
+    if ! command -v runuser >/dev/null 2>&1; then
+        $script_dir/send_telegram_alert.sh "$(hostname) Warning:\n\n runuser is not available, so the WordPress requirements check cannot query the database as \"$RUN_AS_USER\"."
+        exit 2
+    fi
+    if ! id "$RUN_AS_USER" >/dev/null 2>&1; then
+        $script_dir/send_telegram_alert.sh "$(hostname) Warning:\n\n The user \"$RUN_AS_USER\" does not exist, so the WordPress requirements check cannot run."
+        exit 2
+    fi
 fi
 
 # Reads a single-quoted PHP string variable out of wp-includes/version.php
@@ -103,10 +122,13 @@ fi
 
 DB_VERSION=""
 # SHORTINIT connects using wp-config.php without loading plugins or themes.
-# Never load site PHP as root; the client fallback below does not execute site code.
-if [ "$(id -u)" -ne 0 ] && command -v "$PHP_BIN" >/dev/null 2>&1 && [ -r "$WP_ROOT/wp-load.php" ]; then
+# Never load site PHP as root: when a site owner is given the query is dropped to that
+# user, and the client fallback below does not execute site code.
+if { [ -n "$RUN_AS_USER" ] || [ "$(id -u)" -ne 0 ]; } && command -v "$PHP_BIN" >/dev/null 2>&1 && [ -r "$WP_ROOT/wp-load.php" ]; then
+    DB_QUERY=()
+    [ -n "$RUN_AS_USER" ] && DB_QUERY+=(runuser -u "$RUN_AS_USER" --)
     # shellcheck disable=SC2016
-    DB_VERSION=$("$PHP_BIN" -d display_errors=stderr -r '
+    DB_QUERY+=("$PHP_BIN" -d display_errors=stderr -r '
         define("SHORTINIT", true);
         require $argv[1];
         global $wpdb;
@@ -115,7 +137,9 @@ if [ "$(id -u)" -ne 0 ] && command -v "$PHP_BIN" >/dev/null 2>&1 && [ -r "$WP_RO
             exit(1);
         }
         echo $version;
-    ' "$WP_ROOT/wp-load.php" 2>/dev/null) || DB_VERSION=""
+    ' "$WP_ROOT/wp-load.php")
+
+    DB_VERSION=$("${DB_QUERY[@]}" 2>/dev/null) || DB_VERSION=""
     [[ "$DB_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+[^[:space:]]*$ ]] || DB_VERSION=""
 fi
 
@@ -135,7 +159,7 @@ fi
 DB_VERSION=$(normalize_version "$DB_VERSION")
 
 if [ -z "$DB_VERSION" ]; then
-    ISSUES+="Could not determine the database server version (run as the site owner with access to WordPress database credentials, or configure ~/.my.cnf for the mariadb/mysql client)\n"
+    ISSUES+="Could not determine the database server version (pass the WordPress owner as the third argument and run this from root's crontab, or configure ~/.my.cnf for the mariadb/mysql client)\n"
 elif [ -n "$REQUIRED_MYSQL" ] && version_lt "$DB_VERSION" "$REQUIRED_MYSQL"; then
     ISSUES+="Database server $DB_VERSION is below $REQUIRED_MYSQL, required by WordPress core $WP_VERSION\n"
 else
