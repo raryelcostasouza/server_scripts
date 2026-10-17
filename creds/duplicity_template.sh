@@ -8,5 +8,6 @@ PASSPHRASE_ZIP="YOUR_7ZIP_PASSPHRASE_HERE"
 
 export DUPLICITY_CMD=/usr/local/bin/duplicity
 
-# WordPress source is independent of root's HOME.
+# WordPress source and exclusion list live in the site user's home, not root's.
 WORDPRESS_BACKUP_SOURCE=/home/pmpanya/domains/watmarpjan.org
+DUPLICITY_IGNORE_FILE=/home/pmpanya/.duplicity/ignore

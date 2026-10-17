@@ -401,8 +401,10 @@ monitors to alert when one goes missing after an OS upgrade.
 
 The 02:00 backup runs as root to read restricted files such as `wp-config.php`,
 which is essential for restores. The source defaults to
-`/home/pmpanya/domains/watmarpjan.org`; set an absolute `WORDPRESS_BACKUP_SOURCE` in
-root's backup credentials to override it. Remote destinations are unchanged.
+`/home/pmpanya/domains/watmarpjan.org` and the exclusion list to
+`/home/pmpanya/.duplicity/ignore`; set absolute `WORDPRESS_BACKUP_SOURCE` and
+`DUPLICITY_IGNORE_FILE` values in root's backup credentials to override them.
+Remote destinations are unchanged.
 
 To migrate:
 
@@ -410,10 +412,12 @@ To migrate:
    `creds/duplicity.sh` and `creds/telegram.sh` (mode `600`). Keep the checkout,
    credentials, tools and parent directories unwritable by the site user or
    `www-data`; never run root jobs from the user-owned checkout.
-2. Configure root's `gdrive` rclone remote, `/root/.duplicity/ignore`, and database
-   access to `wmj_guests` and `wmj_org_wordpress` (socket authentication or a mode-600
-   `/root/.my.cnf`). Preserve archive passphrases and review exclusions so essential
-   configuration is included.
+2. Configure root's `gdrive` rclone remote and database access to `wmj_guests` and
+   `wmj_org_wordpress` (socket authentication or a mode-600 `/root/.my.cnf`). The
+   exclusion list stays at `/home/pmpanya/.duplicity/ignore`; keep it owned by
+   `root` so the site user cannot silently exclude files from its own backup.
+   Preserve archive passphrases and review exclusions so essential configuration
+   is included.
 3. As `pmpanya`, rerun `/home/pmpanya/server_scripts/wmj/cron_prod_wmj.sh` to remove
    the old backup and monitor entries. Remove entries using other checkout paths
    manually, and wait for any running backup to finish.

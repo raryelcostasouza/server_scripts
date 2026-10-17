@@ -16,9 +16,9 @@ trap 'status=$?
     "$script_dir/../lib/check_log_for_errors.sh" "$STANDARD_LOG_FILE"
     exit "$status"' EXIT
 
-# The site stays in the hosting user's home; configuration and working files use root's HOME.
+# The site and its exclusion list stay in the hosting user's home; only working files use root's HOME.
 WORDPRESS_BACKUP_SOURCE="${WORDPRESS_BACKUP_SOURCE:-/home/pmpanya/domains/watmarpjan.org}"
-DUPLICITY_IGNORE_FILE="$HOME/.duplicity/ignore"
+DUPLICITY_IGNORE_FILE="${DUPLICITY_IGNORE_FILE:-/home/pmpanya/.duplicity/ignore}"
 if [[ "$WORDPRESS_BACKUP_SOURCE" != /* ]]; then
     echo "Error: WORDPRESS_BACKUP_SOURCE must be an absolute path, got '$WORDPRESS_BACKUP_SOURCE'." >&2
     exit 1
@@ -27,8 +27,12 @@ if [ ! -d "$WORDPRESS_BACKUP_SOURCE" ]; then
     echo "Error: WordPress source directory '$WORDPRESS_BACKUP_SOURCE' does not exist." >&2
     exit 1
 fi
+if [[ "$DUPLICITY_IGNORE_FILE" != /* ]]; then
+    echo "Error: DUPLICITY_IGNORE_FILE must be an absolute path, got '$DUPLICITY_IGNORE_FILE'." >&2
+    exit 1
+fi
 if [ ! -r "$DUPLICITY_IGNORE_FILE" ]; then
-    echo "Error: exclusion list '$DUPLICITY_IGNORE_FILE' is missing or unreadable (HOME=$HOME)." >&2
+    echo "Error: exclusion list '$DUPLICITY_IGNORE_FILE' is missing or unreadable." >&2
     exit 1
 fi
 mkdir -p "$HOME/DB" || exit 1
