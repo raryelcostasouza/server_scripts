@@ -25,7 +25,7 @@ fi
 PROBLEM_PATTERN='\berrors?\b|\bfailed\b|\bfailure[sd]?\b|\bfatal\b|traceback|permission denied|no such file|giving up|\bcannot\b|unable to|\bcorrupt'
 
 # Summary counters that report a healthy run would otherwise match the pattern above
-BENIGN_PATTERN='\berrors?\b[[:space:]:]+0\b|\bfailures?\b[[:space:]:]+0\b'
+BENIGN_PATTERN='\berrors?\b[[:space:]:]+0\b|\bfailures?\b[[:space:]:]+0\b|^[0-9]+:Reviewing logs for errors$|^[0-9]+:Error log empty$'
 
 MATCHES=$(grep -inE "$PROBLEM_PATTERN" "$LOG_FILE" | grep -ivE "$BENIGN_PATTERN")
 
