@@ -18,8 +18,16 @@ trap 'status=$?
 
 # The site stays in the hosting user's home; configuration and working files use root's HOME.
 WORDPRESS_BACKUP_SOURCE="${WORDPRESS_BACKUP_SOURCE:-/home/pmpanya/domains/watmarpjan.org}"
-if [[ "$WORDPRESS_BACKUP_SOURCE" != /* ]] || [ ! -d "$WORDPRESS_BACKUP_SOURCE" ] || [ ! -r "$HOME/.duplicity/ignore" ]; then
-    echo "Error: check WORDPRESS_BACKUP_SOURCE and root's ~/.duplicity/ignore before backing up." >&2
+if [[ "$WORDPRESS_BACKUP_SOURCE" != /* ]]; then
+    echo "Error: WORDPRESS_BACKUP_SOURCE must be an absolute path; got \"$WORDPRESS_BACKUP_SOURCE\"." >&2
+    exit 1
+fi
+if [ ! -d "$WORDPRESS_BACKUP_SOURCE" ]; then
+    echo "Error: WordPress backup source \"$WORDPRESS_BACKUP_SOURCE\" does not exist or is not a directory. Set WORDPRESS_BACKUP_SOURCE in root's backup credentials." >&2
+    exit 1
+fi
+if [ ! -r "$HOME/.duplicity/ignore" ]; then
+    echo "Error: root's Duplicity exclude file \"$HOME/.duplicity/ignore\" is missing or unreadable." >&2
     exit 1
 fi
 mkdir -p "$HOME/DB" || exit 1
