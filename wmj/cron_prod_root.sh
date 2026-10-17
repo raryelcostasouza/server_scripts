@@ -12,6 +12,9 @@ $script_dir/../lib/update_cron.sh "0 18 * * 6 /bin/bash -c "$script_dir/../lib/"
 # Scheduled here, not in the site user's crontab: only root can drop wp-cli to www-data,
 # which is the only user able to read wp-config.php
 $script_dir/../lib/update_cron.sh "0 18 * * 6 /bin/bash -c "$script_dir/"monitor_wordpress_integrity_root.sh"
+# Same reason: only root can drop the database query to www-data, the only user able to
+# read the credentials in wp-config.php
+$script_dir/../lib/update_cron.sh "0 18 * * 6 /bin/bash -c "$script_dir/"monitor_wordpress_requirements_root.sh"
 # Monthly: a restore test downloads and decrypts real backup data, too expensive to run weekly
 $script_dir/../lib/update_cron.sh "0 6 1 * * /bin/bash -c "$script_dir/"monitor_backup_restore_root.sh"
 $script_dir/../lib/update_cron.sh "0 18 * * 6 /bin/bash -c "$script_dir/../generic/"fail2ban-monitor.sh"
