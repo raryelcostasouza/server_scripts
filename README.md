@@ -206,6 +206,12 @@ log/       placeholder; real logs go to ~/server_scripts_logs/
 | `monitor_website_health.sh` | Runs the website check across several URLs with the same expected text | `<expected text> <url>...` |
 | `monitor_logs_unattended_upgrades.sh` | Reports errors and warnings from the last 7 days of the unattended-upgrades log (rotated files included), plus pending upgrades, packages kept back, stale apt lists, disabled automatic upgrades and pending reboots | — |
 
+Run `check_wordpress_requirements.sh` as the site owner with the matching PHP CLI
+binary. It queries the database configured in WordPress using a minimal
+`SHORTINIT` bootstrap, without loading plugins or themes. If that fails (or the
+check runs as root), it falls back to `mariadb` or `mysql` using `~/.my.cnf`.
+MariaDB's `5.5.5-` compatibility prefix is ignored when comparing versions.
+
 ### `wmj/` — WordPress host
 
 | Script | Purpose |
