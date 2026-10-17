@@ -1,16 +1,17 @@
 #!/bin/bash
 
-# Check if a new cron entry was provided as an argument
-if [ "$#" -ne 1 ]; then
-  echo "Usage: $0 \"<new-cron-entry>\""
+REMOVE_ONLY=false
+if [ "$#" -eq 2 ] && [ "$1" = "--remove" ]; then
+  REMOVE_ONLY=true
+  CRON_SCRIPT_PATH="$2"
+  NEW_CRON_ENTRY=""
+elif [ "$#" -eq 1 ]; then
+  NEW_CRON_ENTRY="$1"
+  CRON_SCRIPT_PATH=$(echo "$NEW_CRON_ENTRY" | grep -o '/[^ "]*\.sh' | tail -n 1)
+else
+  echo "Usage: $0 \"<new-cron-entry>\" | --remove <absolute-script-path>"
   exit 1
 fi
-
-# New cron entry passed as an argument
-NEW_CRON_ENTRY="$1"
-
-# Path of the script the cron entry is supposed to run
-CRON_SCRIPT_PATH=$(echo "$NEW_CRON_ENTRY" | grep -o '/[^ "]*\.sh' | tail -n 1)
 
 # Refuse to install an entry pointing at a script that cannot run, otherwise cron
 # fails silently and the job never executes
@@ -19,12 +20,17 @@ if [ -z "$CRON_SCRIPT_PATH" ]; then
   exit 1
 fi
 
-if [ ! -f "$CRON_SCRIPT_PATH" ]; then
+if [[ "$CRON_SCRIPT_PATH" != /*.sh ]]; then
+  echo "Error: expected an absolute .sh script path."
+  exit 1
+fi
+
+if [ "$REMOVE_ONLY" = false ] && [ ! -f "$CRON_SCRIPT_PATH" ]; then
   echo "Error: $CRON_SCRIPT_PATH is not a valid file."
   exit 1
 fi
 
-if [ ! -x "$CRON_SCRIPT_PATH" ]; then
+if [ "$REMOVE_ONLY" = false ] && [ ! -x "$CRON_SCRIPT_PATH" ]; then
   echo "Error: $CRON_SCRIPT_PATH is not executable."
   exit 1
 fi
@@ -46,10 +52,12 @@ update_crontab() {
   # Remove any previous entry for the same script, including entries with a
   # different schedule or an outdated script name. -F keeps paths and schedules
   # from being interpreted as regexes.
-  grep -v -F -e "$NEW_CRON_ENTRY" -e "$CRON_SCRIPT_PATH" "$TEMP_CRON_FILE" > "$TEMP_CRON_FILE.new"
-
-  # Add the new entry
-  echo "$NEW_CRON_ENTRY" >> "$TEMP_CRON_FILE.new"
+  if [ "$REMOVE_ONLY" = true ]; then
+    grep -v -F -e "$CRON_SCRIPT_PATH" "$TEMP_CRON_FILE" > "$TEMP_CRON_FILE.new"
+  else
+    grep -v -F -e "$NEW_CRON_ENTRY" -e "$CRON_SCRIPT_PATH" "$TEMP_CRON_FILE" > "$TEMP_CRON_FILE.new"
+    echo "$NEW_CRON_ENTRY" >> "$TEMP_CRON_FILE.new"
+  fi
 
   # Install the new crontab file
   if ! crontab "$TEMP_CRON_FILE.new"; then

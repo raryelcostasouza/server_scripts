@@ -1,8 +1,22 @@
 #!/bin/bash
 
+if [ "$EUID" -ne 0 ]; then
+    echo "Error: WordPress backups must run as root from a root-owned clone." >&2
+    exit 1
+fi
+umask 077
+
 script_dir="$(dirname "$(readlink -f "$0")")"
-source $script_dir/../creds/duplicity.sh
-source $script_dir/../lib/vars_logging.sh
+source "$script_dir/../creds/duplicity.sh"
+source "$script_dir/../lib/vars_logging.sh"
+
+# The site stays in the hosting user's home; configuration and working files use root's HOME.
+WORDPRESS_BACKUP_SOURCE="${WORDPRESS_BACKUP_SOURCE:-/home/pmpanya/domains/watmarpjan.org}"
+if [[ "$WORDPRESS_BACKUP_SOURCE" != /* ]] || [ ! -d "$WORDPRESS_BACKUP_SOURCE" ] || [ ! -r "$HOME/.duplicity/ignore" ]; then
+    echo "Error: check WORDPRESS_BACKUP_SOURCE and root's ~/.duplicity/ignore before backing up." >&2
+    exit 1
+fi
+mkdir -p "$HOME/DB" || exit 1
 
 # Abort instead of running a backup that would silently produce nothing
 $script_dir/../lib/check_required_commands.sh "$DUPLICITY_CMD" rclone mysqldump 7za || exit 1
@@ -51,7 +65,7 @@ $DUPLICITY_CMD --allow-source-mismatch remove-all-inc-of-but-n-full 1 --force rc
 printf "\n\n"
 echo "Backing up WMJ.ORG"
 #backup wmj.org
-$DUPLICITY_CMD --allow-source-mismatch --full-if-older-than 1M --exclude-filelist ~/.duplicity/ignore --no-encryption ~/domains/watmarpjan.org rclone://gdrive://WMJ_Server_Backup/WMJ.ORG/duplicity
+$DUPLICITY_CMD --allow-source-mismatch --full-if-older-than 1M --exclude-filelist "$HOME/.duplicity/ignore" --no-encryption "$WORDPRESS_BACKUP_SOURCE" rclone://gdrive://WMJ_Server_Backup/WMJ.ORG/duplicity
 
 #printf "\n\n"
 #echo "Backing up WMJ.COM"
@@ -60,15 +74,15 @@ $DUPLICITY_CMD --allow-source-mismatch --full-if-older-than 1M --exclude-filelis
 
 printf "\n\n"
 echo "Cleaning up local DB backups older than 3 years"
-find $HOME/DB/ -maxdepth 1 -type f -name "*.7z" -mtime +1095 -exec rm {} +
+find "$HOME/DB/" -maxdepth 1 -type f -name "*.7z" -mtime +1095 -exec rm {} +
 
 printf "\n\n"
 echo "Backing up DB"
 #backup DB
-mysqldump --databases wmj_guests wmj_org_wordpress > ~/DB/backup.sql
-7za -p$PASSPHRASE_ZIP a $HOME/DB/backup-db-$TIMESTAMP.sql.7z $HOME/DB/backup.sql
-rm -f $HOME/DB/backup.sql
-rclone copy $HOME/DB/ gdrive:WMJ_Server_Backup/DB/
+mysqldump --databases wmj_guests wmj_org_wordpress > "$HOME/DB/backup.sql" || exit 1
+7za "-p$PASSPHRASE_ZIP" a "$HOME/DB/backup-db-$TIMESTAMP.sql.7z" "$HOME/DB/backup.sql" || exit 1
+rm -f "$HOME/DB/backup.sql"
+rclone copy "$HOME/DB/" gdrive:WMJ_Server_Backup/DB/
 
 $script_dir/../lib/check_if_error_log_not_empty.sh $ERROR_LOG_FILE
 $script_dir/../lib/check_log_for_errors.sh "$STANDARD_LOG_FILE"

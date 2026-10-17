@@ -161,7 +161,7 @@ Then install the cron entries for the host's role:
 
 ```bash
 ./wmj/cron_prod_wmj.sh         # or ./flux/cron_prod_flux.sh
-sudo ./wmj/cron_prod_root.sh   # root-owned jobs, where applicable
+sudo -H /root/server_scripts/wmj/cron_prod_root.sh   # separate root-owned clone; see below
 ```
 
 Verify:
@@ -186,7 +186,7 @@ log/       placeholder; real logs go to ~/server_scripts_logs/
 
 | Script | Purpose | Args |
 | --- | --- | --- |
-| `update_cron.sh` | Installs a cron entry, replacing any prior entry for the same script. Refuses non-executable targets. | `"<cron entry>"` |
+| `update_cron.sh` | Installs/replaces a cron entry, or removes that script's entries from the current user's crontab. Refuses non-executable install targets. | `"<cron entry>"` or `--remove <absolute script path>` |
 | `cron_qa_schedule.sh` | Wraps `update_cron.sh` with a fixed `*/2 * * * *` schedule for QA runs | `<script path>` |
 | `vars_logging.sh` | Sets `STANDARD_LOG_FILE` / `ERROR_LOG_FILE` and redirects stdout and stderr to them | sourced |
 | `create_logs_dir.sh` | Creates `~/server_scripts_logs` if missing | — |
@@ -304,13 +304,13 @@ All scheduled jobs, across both hosts:
 
 | Script | Host | Crontab | Cron | Cadence |
 | --- | --- | --- | --- | --- |
-| `wmj/backup_wp_files_and_DB.sh` | wmj | `wmj` | `0 2 * * *` | Every day at 02:00 |
+| `wmj/backup_wp_files_and_DB.sh` | wmj | root | `0 2 * * *` | Every day at 02:00 |
 | `wmj/backup_etc_dir.sh` | wmj | root | `20 8 * * *` | Every day at 08:20 |
 | `wmj/certbot_health_check.sh` | wmj | root | `0 5 * * *` | Every day at 05:00 |
 | `wmj/monitor_disk_usage_wmj.sh` | wmj | `wmj` | `0 * * * *` | Every hour, on the hour |
 | `wmj/monitor_service_status_wmj.sh` | wmj | `wmj` | `*/15 * * * *` | Every 15 minutes |
 | `wmj/monitor_website_health_wmj.sh` | wmj | `wmj` | `*/15 * * * *` | Every 15 minutes |
-| `wmj/monitor_backups_wmj.sh` | wmj | `wmj` | `0 6 * * 1` | Every Monday at 06:00 |
+| `wmj/monitor_backups_wmj.sh` | wmj | root | `0 6 * * 1` | Every Monday at 06:00 |
 | `wmj/monitor_wordpress_requirements_wmj.sh` | wmj | `wmj` | `0 7 * * 1` | Every Monday at 07:00 |
 | `wmj/monitor_wordpress_integrity_root.sh` | wmj | root | `0 9 * * 1` | Every Monday at 09:00 |
 | `wmj/malware-detector-log-checker.sh` | wmj | root | `0 21 * * 0` | Every Sunday at 21:00 |
@@ -337,10 +337,11 @@ hand, because `update_cron.sh` only manages entries that invoke a `.sh`.
 
 Per-installer breakdown:
 
-- **`wmj/cron_prod_wmj.sh`** (`wmj` crontab) — the WordPress backup, disk, service,
-  website, backup-freshness, restore-test, requirements and domain-expiry jobs, plus
-  log cleanup.
-- **`wmj/cron_prod_root.sh`** (root crontab) — `/etc` backup, certbot, WordPress
+- **`wmj/cron_prod_wmj.sh`** (`wmj` crontab) — disk, service, website, restore-test,
+  requirements and domain-expiry jobs, plus log cleanup. Removes the old WordPress
+  backup and backup-freshness entries from this user's crontab.
+- **`wmj/cron_prod_root.sh`** (root crontab) — WordPress and `/etc` backups,
+  backup-freshness monitoring, certbot, WordPress
   integrity, root restore test, unattended-upgrade and fail2ban logs, SSH logins,
   maldet log check, plus log cleanup.
 - **`flux/cron_prod_flux.sh`** (`flux` crontab) — node status, disk usage,
@@ -383,62 +384,70 @@ monitors to alert when one goes missing after an OS upgrade.
 | No Telegram alerts at all | `creds/telegram.sh` missing or wrong `BOT_TOKEN` / `CHAT_ID` | run `lib/send_telegram_alert.sh "test"` by hand |
 | SSH logins produce no alert | wrong `SSH_UNIT`, or the job is not in **root's** crontab | `journalctl -u ssh.service \| grep Accepted`, and `sudo crontab -l \| grep ssh-login` |
 
-### WordPress backup: “Error accessing possibly locked file”
+### WordPress backups as root
 
-Duplicity uses this message for files it cannot read, not just locked files. If
-`wp-config.php`, `wp-cache-config.php` or Wordfence's `wp-content/wflogs/*.php` fail,
-check access as the backup user (`pmpanya` on cloud-server-0):
+`wp-config.php` is essential for a complete restore: it holds database connection
+settings, authentication keys and site-specific options. Cache configuration and
+Wordfence's `wp-content/wflogs/` files are generally regenerable, but preserving them
+also preserves plugin configuration and firewall state. Do not exclude essential
+configuration just to silence Duplicity's “Error accessing possibly locked file”:
+that message can mean permission denied, not an actual lock.
 
-```bash
-sudo -u pmpanya test -r /home/pmpanya/domains/watmarpjan.org/public_html/wp/wp-config.php
-sudo getfacl /home/pmpanya/domains/watmarpjan.org/public_html/wp/wp-config.php
-```
+The WordPress backup now runs as root at 02:00, reading
+`/home/pmpanya/domains/watmarpjan.org` without changing `www-data` ownership or
+loosening file permissions. Override `WORDPRESS_BACKUP_SOURCE` in root's
+`creds/duplicity.sh` if the site lives elsewhere. It must be an absolute path.
+Google Drive destinations are unchanged.
 
-A failed `test -r` confirms an access problem. The backup can stay in `pmpanya`'s
-crontab: an administrator can grant that user read access with filesystem ACLs,
-without changing `www-data` ownership, making sensitive files world-readable, or
-running the backup script as root. `pmpanya` can set ACLs on files it owns; files
-owned by `www-data` need their owner or root to do this. The host needs `getfacl`
-and `setfacl` (the Ubuntu `acl` package) and a filesystem supporting POSIX ACLs.
+#### One-time migration
 
-Run this once as an administrator, scoped to the directory the script backs up:
+1. Provision a **separate, root-owned checkout** at `/root/server_scripts`, including
+   its `creds/duplicity.sh` and `creds/telegram.sh`. Follow first-time setup as root.
+   Keep the checkout, credentials, commands and parent directories unwritable by the
+   site user and `www-data`. Never schedule root to execute or source files from the
+   user-owned `/home/pmpanya/server_scripts` checkout.
+2. Configure root's rclone remote named `gdrive` and verify it reaches the existing
+   backup directories. Root's `/etc` backup may already provide this configuration.
+   Provision `/root/.duplicity/ignore` from the old user's exclusion list, reviewing
+   any absolute paths. Do not exclude the configuration files above.
+3. Verify root can dump `wmj_guests` and `wmj_org_wordpress`. If socket authentication
+   is unavailable, configure a root-owned mode-600 `/root/.my.cnf` with suitable
+   database credentials. Do not change database authentication merely to move cron.
+   Preserve the existing archive passphrases in root's backup credentials.
+4. As `pmpanya`, run `/home/pmpanya/server_scripts/wmj/cron_prod_wmj.sh` from the
+   updated user checkout. It removes the old backup and backup-monitor entries
+   while retaining unrelated cron jobs. If the old jobs used a different checkout
+   path, remove those entries explicitly. Wait for any running user backup to finish.
+5. As root, run `/root/server_scripts/wmj/backup_wp_files_and_DB.sh` manually and
+   inspect both logs in `/root/server_scripts_logs/`. Confirm the backup source and
+   remote destinations, zero skipped-file errors, and test a restore. Then install
+   the schedule with `sudo -H /root/server_scripts/wmj/cron_prod_root.sh`.
+6. Check both `crontab -l` as `pmpanya` and `sudo crontab -l`: only root should run
+   the WordPress backup and `monitor_backups_wmj.sh`. The monitor moves too because
+   its recent-run check reads logs under the executing user's HOME.
 
-```bash
-site=/home/pmpanya/domains/watmarpjan.org
-sudo setfacl -R -m u:pmpanya:rX "$site"
-sudo find "$site" -type d -exec setfacl -m d:u:pmpanya:r-x {} +
-```
+Root uses `/root/DB` for new private database dumps and archives, its own Duplicity
+cache, and `/root/server_scripts_logs/` for logs. Old user-owned archives and logs
+are not moved or deleted; review their retention separately. Restore tests still
+run under their existing users and need their existing credentials. QA's user
+installer no longer schedules the root-only WordPress backup or its monitor.
 
-The access ACL covers existing files and allows directory traversal; the default
-ACL on every existing directory covers newly created children. Neither grant adds
-write access for `pmpanya`. Review existing ACLs before applying: `setfacl`
-recalculates the ACL mask, which can also enable previously masked permissions for
-other named users or groups. Parent directories above `$site` must also be
-traversable by `pmpanya`.
+#### Trade-offs
 
-Check the result as the backup user (no output and a zero exit status means the
-tree is readable and traversable):
+- Root bypasses ordinary local file permissions, including plugin `chmod 600`
+  changes, so no read ACLs are needed. It does **not** solve concurrent writes,
+  disappearing files, filesystem errors, or snapshot consistency.
+- A compromised backup script, credential file (which is sourced as shell), or
+  backup tool now has root privileges. Maintain the root-owned checkout separately;
+  do not run WordPress/plugin code as root.
+- Root needs separate rclone/database configuration and cache space. A new cache
+  may need to synchronize existing remote metadata on its first run.
+- The existing file backup uses `--no-encryption`; it includes sensitive
+  `wp-config.php` data. Restrict access to the remote backup. Moving cron to root
+  does not encrypt it or change this existing policy.
 
-```bash
-sudo -u pmpanya find /home/pmpanya/domains/watmarpjan.org \
-  \( ! -readable -o \( -type d ! -executable \) \) -print
-```
-
-This checks the whole source tree, including paths intentionally excluded by
-`~/.duplicity/ignore`. Then run
-`/home/pmpanya/server_scripts/wmj/backup_wp_files_and_DB.sh` **as `pmpanya`** and
-review both its `.log` and `.error.log` in `/home/pmpanya/server_scripts_logs/`.
-“Error log empty” only describes stderr: Duplicity can report skipped files and
-an `Errors` count on stdout, so it does not prove the backup is complete.
-
-Plugins can replace files or apply `chmod 600`, restricting the ACL mask even
-when a default ACL exists. If failures recur, inspect `getfacl` again, reapply the
-scoped access ACL, and correct the writer's permission policy; do not hide the
-errors by excluding configuration files needed for a restore. If files are
-readable but errors persist, investigate concurrent writes or deletion rather
-than broadening permissions. Running as `www-data` is not a drop-in alternative:
-it also needs access to the backup user's database credentials, local archives,
-Duplicity cache and rclone configuration.
+“Error log empty” only describes stderr: Duplicity can report skipped files and an
+`Errors` count on stdout, so inspect both logs before trusting a backup.
 
 ## License
 
