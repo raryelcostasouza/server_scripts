@@ -10,6 +10,12 @@ script_dir="$(dirname "$(readlink -f "$0")")"
 source "$script_dir/../creds/duplicity.sh"
 source "$script_dir/../lib/vars_logging.sh"
 
+# Report failures even when a prerequisite, dump or archive aborts the backup.
+trap 'status=$?
+    "$script_dir/../lib/check_if_error_log_not_empty.sh" "$ERROR_LOG_FILE"
+    "$script_dir/../lib/check_log_for_errors.sh" "$STANDARD_LOG_FILE"
+    exit "$status"' EXIT
+
 # The site stays in the hosting user's home; configuration and working files use root's HOME.
 WORDPRESS_BACKUP_SOURCE="${WORDPRESS_BACKUP_SOURCE:-/home/pmpanya/domains/watmarpjan.org}"
 if [[ "$WORDPRESS_BACKUP_SOURCE" != /* ]] || [ ! -d "$WORDPRESS_BACKUP_SOURCE" ] || [ ! -r "$HOME/.duplicity/ignore" ]; then
@@ -83,6 +89,3 @@ mysqldump --databases wmj_guests wmj_org_wordpress > "$HOME/DB/backup.sql" || ex
 7za "-p$PASSPHRASE_ZIP" a "$HOME/DB/backup-db-$TIMESTAMP.sql.7z" "$HOME/DB/backup.sql" || exit 1
 rm -f "$HOME/DB/backup.sql"
 rclone copy "$HOME/DB/" gdrive:WMJ_Server_Backup/DB/
-
-$script_dir/../lib/check_if_error_log_not_empty.sh $ERROR_LOG_FILE
-$script_dir/../lib/check_log_for_errors.sh "$STANDARD_LOG_FILE"
