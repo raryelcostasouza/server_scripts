@@ -399,68 +399,34 @@ monitors to alert when one goes missing after an OS upgrade.
 
 ### WordPress backups as root
 
-`wp-config.php` is essential for a complete restore: it holds database connection
-settings, authentication keys and site-specific options. Cache configuration and
-Wordfence's `wp-content/wflogs/` files are generally regenerable, but preserving them
-also preserves plugin configuration and firewall state. Do not exclude essential
-configuration just to silence Duplicity's “Error accessing possibly locked file”:
-that message can mean permission denied, not an actual lock.
+The 02:00 backup runs as root to read restricted files such as `wp-config.php`,
+which is essential for restores. The source defaults to
+`/home/pmpanya/domains/watmarpjan.org`; set an absolute `WORDPRESS_BACKUP_SOURCE` in
+root's backup credentials to override it. Remote destinations are unchanged.
 
-The WordPress backup now runs as root at 02:00, reading
-`/home/pmpanya/domains/watmarpjan.org` without changing `www-data` ownership or
-loosening file permissions. Override `WORDPRESS_BACKUP_SOURCE` in root's
-`creds/duplicity.sh` if the site lives elsewhere. It must be an absolute path.
-Google Drive destinations are unchanged.
+To migrate:
 
-#### One-time migration
+1. Use a separate **root-owned checkout** at `/root/server_scripts` with
+   `creds/duplicity.sh` and `creds/telegram.sh` (mode `600`). Keep the checkout,
+   credentials, tools and parent directories unwritable by the site user or
+   `www-data`; never run root jobs from the user-owned checkout.
+2. Configure root's `gdrive` rclone remote, `/root/.duplicity/ignore`, and database
+   access to `wmj_guests` and `wmj_org_wordpress` (socket authentication or a mode-600
+   `/root/.my.cnf`). Preserve archive passphrases and review exclusions so essential
+   configuration is included.
+3. As `pmpanya`, rerun `/home/pmpanya/server_scripts/wmj/cron_prod_wmj.sh` to remove
+   the old backup and monitor entries. Remove entries using other checkout paths
+   manually, and wait for any running backup to finish.
+4. As root, test `/root/server_scripts/wmj/backup_wp_files_and_DB.sh`, inspect both
+   logs in `/root/server_scripts_logs/`, and verify a restore. Install cron with
+   `sudo -H /root/server_scripts/wmj/cron_prod_root.sh`. Check both crontabs: only
+   root should run the backup and `monitor_backups_wmj.sh`.
 
-1. Provision a **separate, root-owned checkout** at `/root/server_scripts`, including
-   its `creds/duplicity.sh` and `creds/telegram.sh`. Follow first-time setup as root.
-   Keep the checkout, credentials, commands and parent directories unwritable by the
-   site user and `www-data`. Never schedule root to execute or source files from the
-   user-owned `/home/pmpanya/server_scripts` checkout.
-2. Configure root's rclone remote named `gdrive` and verify it reaches the existing
-   backup directories. Root's `/etc` backup may already provide this configuration.
-   Provision `/root/.duplicity/ignore` from the old user's exclusion list, reviewing
-   any absolute paths. Do not exclude the configuration files above.
-3. Verify root can dump `wmj_guests` and `wmj_org_wordpress`. If socket authentication
-   is unavailable, configure a root-owned mode-600 `/root/.my.cnf` with suitable
-   database credentials. Do not change database authentication merely to move cron.
-   Preserve the existing archive passphrases in root's backup credentials.
-4. As `pmpanya`, run `/home/pmpanya/server_scripts/wmj/cron_prod_wmj.sh` from the
-   updated user checkout. It removes the old backup and backup-monitor entries
-   while retaining unrelated cron jobs. If the old jobs used a different checkout
-   path, remove those entries explicitly. Wait for any running user backup to finish.
-5. As root, run `/root/server_scripts/wmj/backup_wp_files_and_DB.sh` manually and
-   inspect both logs in `/root/server_scripts_logs/`. Confirm the backup source and
-   remote destinations, zero skipped-file errors, and test a restore. Then install
-   the schedule with `sudo -H /root/server_scripts/wmj/cron_prod_root.sh`.
-6. Check both `crontab -l` as `pmpanya` and `sudo crontab -l`: only root should run
-   the WordPress backup and `monitor_backups_wmj.sh`. The monitor moves too because
-   its recent-run check reads logs under the executing user's HOME.
-
-Root uses `/root/DB` for new private database dumps and archives, its own Duplicity
-cache, and `/root/server_scripts_logs/` for logs. Old user-owned archives and logs
-are not moved or deleted; review their retention separately. Restore tests still
-run under their existing users and need their existing credentials. QA's user
-installer no longer schedules the root-only WordPress backup or its monitor.
-
-#### Trade-offs
-
-- Root bypasses ordinary local file permissions, including plugin `chmod 600`
-  changes, so no read ACLs are needed. It does **not** solve concurrent writes,
-  disappearing files, filesystem errors, or snapshot consistency.
-- A compromised backup script, credential file (which is sourced as shell), or
-  backup tool now has root privileges. Maintain the root-owned checkout separately;
-  do not run WordPress/plugin code as root.
-- Root needs separate rclone/database configuration and cache space. A new cache
-  may need to synchronize existing remote metadata on its first run.
-- The existing file backup uses `--no-encryption`; it includes sensitive
-  `wp-config.php` data. Restrict access to the remote backup. Moving cron to root
-  does not encrypt it or change this existing policy.
-
-“Error log empty” only describes stderr: Duplicity can report skipped files and an
-`Errors` count on stdout, so inspect both logs before trusting a backup.
+New database archives use `/root/DB`; old user archives and logs are not migrated.
+Root avoids permission errors but increases the impact of compromised backup code
+and does not provide snapshot consistency. File backups remain **unencrypted**:
+restrict remote access. Review stdout as well as stderr—“Error log empty” does not
+prove that no files were skipped.
 
 ## License
 
