@@ -208,11 +208,9 @@ log/       placeholder; real logs go to ~/server_scripts_logs/
 
 Run `check_wordpress_requirements.sh` with the matching PHP CLI binary. It queries
 the database configured in WordPress using a minimal `SHORTINIT` bootstrap, without
-loading plugins or themes. Only the WordPress owner can read the credentials in
-wp-config.php, so on a host where that user is not the one running the check, start it
-from root's crontab and pass the owner as the third argument: the query is then dropped
-to that user with `runuser` and never runs as root. If the query fails (or the check
-runs as root without an owner), it falls back to `mariadb` or `mysql` using `~/.my.cnf`.
+loading plugins or themes. When the check does not run as the WordPress owner, pass
+that user as the third argument — the query is then executed through `runuser` as the
+owner. If the query fails, it falls back to `mariadb` or `mysql` using `~/.my.cnf`.
 MariaDB's `5.5.5-` compatibility prefix is ignored when comparing versions.
 
 ### `wmj/` — WordPress host
@@ -270,14 +268,6 @@ host from the committed `*_template.sh` files.
 `generic/ssh-login-monitor.sh` reports every successful SSH login. It runs from root's
 crontab every 5 minutes.
 
-**Why 5 minutes and not every minute.** Detection latency is not the limiting factor:
-by the time the Telegram message is read and acted on, minutes have passed regardless,
-and an intruder with valid credentials does the damage in the first seconds. On a host
-where SSH is on a non-standard port behind a firewall and fail2ban, this alert is an
-audit trail to read, not a tripwire to race. A `* * * * *` entry would also add 1440
-cron lines a day to `/var/log/syslog` — degrading the very logs wanted during an
-incident — against no practical gain.
-
 Two deliberate departures from the usual pattern:
 
 - **It does not source `lib/vars_logging.sh`.** That helper opens a new log file per
@@ -297,8 +287,7 @@ Other notes:
 - If `journalctl` fails, it alerts once and drops a `.error` marker so the failure is not
   re-reported every 30 seconds; the marker clears on the next healthy run. A cursor the
   journal no longer holds is discarded so the monitor cannot wedge permanently.
-- Usernames reach the journal from the remote peer, so control characters are stripped
-  before the text goes into an alert.
+- Control characters are stripped from usernames before the text goes into an alert.
 - The unit name is set by `SSH_UNIT` at the top of the script (`ssh.service` on Ubuntu).
   A wrong value fails *silently* — after install, confirm with
   `journalctl -u ssh.service | grep Accepted`.
@@ -399,25 +388,20 @@ monitors to alert when one goes missing after an OS upgrade.
 
 ### WordPress backups as root
 
-The 02:00 backup runs as root to read restricted files such as `wp-config.php`,
-which is essential for restores. The source defaults to
-`/home/pmpanya/domains/watmarpjan.org` and the exclusion list to
+The 02:00 backup runs as root so it can read restricted files such as `wp-config.php`.
+The source defaults to `/home/pmpanya/domains/watmarpjan.org` and the exclusion list to
 `/home/pmpanya/.duplicity/ignore`; set absolute `WORDPRESS_BACKUP_SOURCE` and
 `DUPLICITY_IGNORE_FILE` values in root's backup credentials to override them.
 Remote destinations are unchanged.
 
 To migrate:
 
-1. Use a separate **root-owned checkout** at `/root/server_scripts` with
-   `creds/duplicity.sh` and `creds/telegram.sh` (mode `600`). Keep the checkout,
-   credentials, tools and parent directories unwritable by the site user or
-   `www-data`; never run root jobs from the user-owned checkout.
+1. Create a separate **root-owned checkout** at `/root/server_scripts` with its own
+   `creds/duplicity.sh` and `creds/telegram.sh` (mode `600`).
 2. Configure root's `gdrive` rclone remote and database access to `wmj_guests` and
    `wmj_org_wordpress` (socket authentication or a mode-600 `/root/.my.cnf`). The
-   exclusion list stays at `/home/pmpanya/.duplicity/ignore`; keep it owned by
-   `root` so the site user cannot silently exclude files from its own backup.
-   Preserve archive passphrases and review exclusions so essential configuration
-   is included.
+   exclusion list stays at `/home/pmpanya/.duplicity/ignore`, owned by `root`. Reuse
+   the existing archive passphrases.
 3. As `pmpanya`, rerun `/home/pmpanya/server_scripts/wmj/cron_prod_wmj.sh` to remove
    the old backup and monitor entries. Remove entries using other checkout paths
    manually, and wait for any running backup to finish.
@@ -427,10 +411,8 @@ To migrate:
    root should run the backup and `monitor_backups_wmj.sh`.
 
 New database archives use `/root/DB`; old user archives and logs are not migrated.
-Root avoids permission errors but increases the impact of compromised backup code
-and does not provide snapshot consistency. File backups remain **unencrypted**:
-restrict remote access. Review stdout as well as stderr—“Error log empty” does not
-prove that no files were skipped.
+File backups are stored unencrypted. Review stdout as well as stderr — an empty error
+log does not mean no files were skipped.
 
 ## License
 
