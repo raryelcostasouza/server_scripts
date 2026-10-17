@@ -18,6 +18,7 @@ trap 'status=$?
 
 # The site stays in the hosting user's home; configuration and working files use root's HOME.
 WORDPRESS_BACKUP_SOURCE="${WORDPRESS_BACKUP_SOURCE:-/home/pmpanya/domains/watmarpjan.org}"
+DUPLICITY_EXCLUDE_FILE=/home/pmpanya/.duplicity/ignore
 if [[ "$WORDPRESS_BACKUP_SOURCE" != /* ]]; then
     echo "Error: WORDPRESS_BACKUP_SOURCE must be an absolute path; got \"$WORDPRESS_BACKUP_SOURCE\"." >&2
     exit 1
@@ -26,8 +27,8 @@ if [ ! -d "$WORDPRESS_BACKUP_SOURCE" ]; then
     echo "Error: WordPress backup source \"$WORDPRESS_BACKUP_SOURCE\" does not exist or is not a directory. Set WORDPRESS_BACKUP_SOURCE in root's backup credentials." >&2
     exit 1
 fi
-if [ ! -r "$HOME/.duplicity/ignore" ]; then
-    echo "Error: root's Duplicity exclude file \"$HOME/.duplicity/ignore\" is missing or unreadable." >&2
+if [ ! -r "$DUPLICITY_EXCLUDE_FILE" ]; then
+    echo "Error: pmpanya's Duplicity exclude file \"$DUPLICITY_EXCLUDE_FILE\" is missing or unreadable." >&2
     exit 1
 fi
 mkdir -p "$HOME/DB" || exit 1
@@ -79,7 +80,7 @@ $DUPLICITY_CMD --allow-source-mismatch remove-all-inc-of-but-n-full 1 --force rc
 printf "\n\n"
 echo "Backing up WMJ.ORG"
 #backup wmj.org
-$DUPLICITY_CMD --allow-source-mismatch --full-if-older-than 1M --exclude-filelist "$HOME/.duplicity/ignore" --no-encryption "$WORDPRESS_BACKUP_SOURCE" rclone://gdrive://WMJ_Server_Backup/WMJ.ORG/duplicity
+$DUPLICITY_CMD --allow-source-mismatch --full-if-older-than 1M --exclude-filelist "$DUPLICITY_EXCLUDE_FILE" --no-encryption "$WORDPRESS_BACKUP_SOURCE" rclone://gdrive://WMJ_Server_Backup/WMJ.ORG/duplicity
 
 #printf "\n\n"
 #echo "Backing up WMJ.COM"

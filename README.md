@@ -410,7 +410,7 @@ To migrate:
    `creds/duplicity.sh` and `creds/telegram.sh` (mode `600`). Keep the checkout,
    credentials, tools and parent directories unwritable by the site user or
    `www-data`; never run root jobs from the user-owned checkout.
-2. Configure root's `gdrive` rclone remote, `/root/.duplicity/ignore`, and database
+2. Configure root's `gdrive` rclone remote, `/home/pmpanya/.duplicity/ignore`, and database
    access to `wmj_guests` and `wmj_org_wordpress` (socket authentication or a mode-600
    `/root/.my.cnf`). Preserve archive passphrases and review exclusions so essential
    configuration is included.
