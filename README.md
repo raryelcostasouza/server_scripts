@@ -302,6 +302,9 @@ schedules with `*/2 * * * *` for rapid testing — never run them on a productio
 
 All scheduled jobs, across both hosts:
 
+Cron times are in each host's local timezone (Asia/Bangkok). Weekly alert jobs are set
+for 18:00 Saturday there, which is 08:00 Saturday in Brasília time (UTC−3).
+
 | Script | Host | Crontab | Cron | Cadence |
 | --- | --- | --- | --- | --- |
 | `wmj/backup_wp_files_and_DB.sh` | wmj | `wmj` | `0 2 * * *` | Every day at 02:00 |
@@ -310,19 +313,19 @@ All scheduled jobs, across both hosts:
 | `wmj/monitor_disk_usage_wmj.sh` | wmj | `wmj` | `0 * * * *` | Every hour, on the hour |
 | `wmj/monitor_service_status_wmj.sh` | wmj | `wmj` | `*/15 * * * *` | Every 15 minutes |
 | `wmj/monitor_website_health_wmj.sh` | wmj | `wmj` | `*/15 * * * *` | Every 15 minutes |
-| `wmj/monitor_backups_wmj.sh` | wmj | `wmj` | `0 8 * * 6` | Every Saturday at 08:00 |
-| `wmj/monitor_wordpress_requirements_wmj.sh` | wmj | `wmj` | `0 8 * * 6` | Every Saturday at 08:00 |
-| `wmj/monitor_wordpress_integrity_root.sh` | wmj | root | `0 8 * * 6` | Every Saturday at 08:00 |
-| `wmj/malware-detector-log-checker.sh` | wmj | root | `0 8 * * 6` | Every Saturday at 08:00 |
+| `wmj/monitor_backups_wmj.sh` | wmj | `wmj` | `0 18 * * 6` | Every Saturday at 18:00 Bangkok / 08:00 Brasília |
+| `wmj/monitor_wordpress_requirements_wmj.sh` | wmj | `wmj` | `0 18 * * 6` | Every Saturday at 18:00 Bangkok / 08:00 Brasília |
+| `wmj/monitor_wordpress_integrity_root.sh` | wmj | root | `0 18 * * 6` | Every Saturday at 18:00 Bangkok / 08:00 Brasília |
+| `wmj/malware-detector-log-checker.sh` | wmj | root | `0 18 * * 6` | Every Saturday at 18:00 Bangkok / 08:00 Brasília |
 | `wmj/monitor_backup_restore_wmj.sh` | wmj | `wmj` | `0 4 1 * *` | 1st of every month at 04:00 |
 | `wmj/monitor_backup_restore_root.sh` | wmj | root | `0 6 1 * *` | 1st of every month at 06:00 |
 | `wmj/monitor_domain_expiry_wmj.sh` | wmj | `wmj` | `0 7 1 * *` | 1st of every month at 07:00 |
 | `flux/monitor_node_confirmed_status.sh` | flux | `flux` | `0 * * * *` | Every hour, on the hour |
 | `flux/monitor_disk_usage_flux.sh` | flux | `flux` | `0 0 * * *` | Every day at midnight |
 | `generic/ssh-login-monitor.sh` | wmj, flux | root | `*/5 * * * *` | Every 5 minutes |
-| `generic/fail2ban-monitor.sh` | wmj | root | `0 8 * * 6` | Every Saturday at 08:00 |
+| `generic/fail2ban-monitor.sh` | wmj | root | `0 18 * * 6` | Every Saturday at 18:00 Bangkok / 08:00 Brasília |
 | `lib/monitor_logs_unattended_upgrades.sh` | flux | `flux` | `0 0 * * *` | Every day at midnight |
-| `lib/monitor_logs_unattended_upgrades.sh` | wmj, flux | root | `0 8 * * 6` | Every Saturday at 08:00 |
+| `lib/monitor_logs_unattended_upgrades.sh` | wmj, flux | root | `0 18 * * 6` | Every Saturday at 18:00 Bangkok / 08:00 Brasília |
 | `lib/clean_script_logs_older_n_days.sh` | wmj, flux | `wmj`/`flux` + root | `30 3 1 * *` | 1st of every month at 03:30 |
 
 Jobs that write to `/dev/null` in the crontab — `monitor_disk_usage_wmj.sh`,
@@ -331,10 +334,10 @@ Jobs that write to `/dev/null` in the crontab — `monitor_disk_usage_wmj.sh`,
 owning user on every healthy run.
 
 One schedule is **not** managed by `update_cron.sh`: the maldet scan itself
-(`0 6 * * 6 /usr/local/maldetect/maldet -a ...`, every Saturday at 06:00) is added by
-hand, because `update_cron.sh` only manages entries that invoke a `.sh`.
-`malware-detector-log-checker.sh` reads the resulting log two hours later, at the shared
-08:00 Saturday time for weekly alerting.
+(`0 16 * * 6 /usr/local/maldetect/maldet -a ...`, every Saturday at 16:00 Bangkok /
+06:00 Brasília) is added by hand, because `update_cron.sh` only manages entries that
+invoke a `.sh`. `malware-detector-log-checker.sh` reads the resulting log two hours later,
+at the shared 18:00 Bangkok / 08:00 Brasília Saturday time for weekly alerting.
 
 Per-installer breakdown:
 
